@@ -1,0 +1,44 @@
+{
+  "cli": { "version": ">= 10.0.0", "appVersionSource": "remote" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_DEMO_MODE": "false",
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
+        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_DEMO_MODE": "false",
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
+        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app"
+      }
+    },
+    "apk": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_DEMO_MODE": "false",
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
+        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "android": { "buildType": "app-bundle" },
+      "env": {
+        "EXPO_PUBLIC_DEMO_MODE": "false",
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
+        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gvuzyszsflujzinykqom.supabase.co"
+      }
+    }
+  },
+  "submit": { "production": {} }
+}
