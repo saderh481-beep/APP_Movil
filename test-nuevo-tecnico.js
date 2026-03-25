@@ -24,11 +24,17 @@ async function crearYProbarTecnico() {
     const codigo = Math.floor(10000 + Math.random() * 90000).toString();
     const nombre = `Técnico Test ${new Date().toISOString().split('T')[0]}`;
     const correo = `tecnico${codigo}@test.com`;
+    
+    // Generar fecha límite: 1 año a partir de hoy
+    const hoy = new Date();
+    const proximoAno = new Date(hoy.getFullYear() + 1, hoy.getMonth(), hoy.getDate());
+    const fechaLimite = proximoAno.toISOString().split('T')[0];
 
     console.log('📝 Datos del nuevo técnico:');
     console.log(`   Código: ${codigo}`);
     console.log(`   Nombre: ${nombre}`);
-    console.log(`   Correo: ${correo}\n`);
+    console.log(`   Correo: ${correo}`);
+    console.log(`   Fecha Límite: ${fechaLimite}\n`);
 
     // ============================================
     // PASO 1: CREAR TÉCNICO EN BD
@@ -51,10 +57,10 @@ async function crearYProbarTecnico() {
         ${correo},
         'tecnico',
         true,
-        NULL,
+        ${fechaLimite}::date,
         'activo'
       )
-      RETURNING id, codigo_acceso, nombre, correo, rol, activo, estado_corte
+      RETURNING id, codigo_acceso, nombre, correo, rol, activo, fecha_limite, estado_corte
     `;
 
     if (!result || result.length === 0) {
@@ -66,7 +72,33 @@ async function crearYProbarTecnico() {
     console.log(`   ID: ${user.id}`);
     console.log(`   Rol: ${user.rol}`);
     console.log(`   Estado: ${user.activo ? '✅ Activo' : '❌ Inactivo'}`);
+    console.log(`   Fecha Límite: ${user.fecha_limite}`);
     console.log(`   Corte: ${user.estado_corte}\n`);
+
+    // Crear registro en tecnico_detalles con fecha_limite
+    console.log('⏳ Configurando detalles del técnico...');
+    
+    const fecha_limite_timestamp = new Date(proximoAno).toISOString();
+    const coordinador_id = '7c9f7746-9c53-496e-9ea3-cc7f07d01e36'; // Coordinador existente
+    
+    await sql`
+      INSERT INTO tecnico_detalles (
+        tecnico_id,
+        coordinador_id,
+        fecha_limite,
+        estado_corte
+      )
+      VALUES (
+        ${user.id}::uuid,
+        ${coordinador_id}::uuid,
+        ${fecha_limite_timestamp}::timestamp with time zone,
+        'en_servicio'
+      )
+      ON CONFLICT (tecnico_id) DO UPDATE SET
+        fecha_limite = ${fecha_limite_timestamp}::timestamp with time zone
+    `;
+    
+    console.log('✅ Detalles del técnico configurados\n');
 
     // ============================================
     // PASO 2: PROBAR SALUD DEL API
