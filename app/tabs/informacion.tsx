@@ -15,9 +15,9 @@ const Row = ({ l, v }: { l: string; v: string }) => (
 );
 
 export default function Informacion() {
-  const { usuario, isDemo, clearAuth } = useAuthStore();
-  const [conexion, setConexion] = useState({ appApiUrl: API_CONFIG.APP_API_URL, modoDemo: API_CONFIG.DEMO_MODE });
-  const ini = (usuario?.nombre_completo ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const { tecnico, clearAuth } = useAuthStore();
+  const [conexion, setConexion] = useState({ appApiUrl: API_CONFIG.APP_API_URL });
+  const ini = (tecnico?.nombre ?? '?').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
 
   useEffect(() => {
     getConnectionInfo()
@@ -31,18 +31,15 @@ export default function Informacion() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={s.avSec}>
           <View style={s.av}><Text style={s.avT}>{ini}</Text></View>
-          <Text style={s.nom}>{usuario?.nombre_completo ?? '—'}</Text>
-          <Text style={s.rol}>{ROL[usuario?.rol ?? ''] ?? usuario?.rol}</Text>
-          {isDemo && <View style={s.demoBadge}><Text style={s.demoBadgeT}>🔶 Modo Demostración activo</Text></View>}
+          <Text style={s.nom}>{tecnico?.nombre ?? '—'}</Text>
+          <Text style={s.rol}>Técnico de Campo</Text>
         </View>
 
         <View style={s.card}>
           <Text style={s.cardT}>Información Personal</Text>
-          <Row l="Nombre" v={usuario?.nombre_completo ?? '—'} />
-          <Row l="Correo" v={usuario?.email ?? '—'} />
-          <Row l="Zona" v={usuario?.zona_nombre ?? '—'} />
-          <Row l="Especialidad" v={ESP[usuario?.especialidad ?? ''] ?? '—'} />
-          <Row l="Reg. Beneficiarios" v={usuario?.puede_registrar_beneficiarios ? '✅ Sí' : '❌ No'} />
+          <Row l="Nombre" v={tecnico?.nombre ?? '—'} />
+          <Row l="ID" v={tecnico?.id ?? '—'} />
+          <Row l="Rol" v="Técnico de Campo" />
           <Row l="Código" v="•••••" />
         </View>
 
@@ -51,7 +48,7 @@ export default function Informacion() {
           <Row l="API App" v={conexion.appApiUrl} />
           <Row l="API Web" v={API_CONFIG.WEB_API_URL} />
           <Row l="Supabase" v={API_CONFIG.SUPABASE_URL} />
-          <Row l="Modo" v={conexion.modoDemo ? '🟡 Local / Demo' : '🟢 Producción'} />
+          <Row l="Servidor" v={conexion.appApiUrl} />
           <TouchableOpacity style={s.btnCfg} onPress={() => router.replace('/auth/conexion')}>
             <Text style={s.btnCfgT}>🔧 Cambiar configuración del servidor</Text>
           </TouchableOpacity>

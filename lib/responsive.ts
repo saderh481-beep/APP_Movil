@@ -41,6 +41,8 @@ export const screen = {
   isMedium: W >= 360 && W < 414,  // Pixel, Samsung S series
   isLarge: W >= 414,     // Samsung Note, Plus sizes
   isTablet: W >= 600,    // Tablets Android
+  isDesktop: W >= 1024,  // Desktop/EScritorio
+  isLandscape: W > H,    // Modo paisaje
 };
 
 // Espaciado responsivo
@@ -52,6 +54,7 @@ export const spacing = {
   xl: rw(20),
   xxl: rw(24),
   xxxl: rw(32),
+  xxxxl: rw(48),
 };
 
 // Tipografía responsiva

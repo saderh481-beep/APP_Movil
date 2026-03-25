@@ -4,18 +4,19 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { isLoading, loadAuth, isAuthenticated, isDemo, setOffline } = useAuthStore();
+  const { isLoading, loadAuth, isAuthenticated, setOffline } = useAuthStore();
 
   useEffect(() => {
     loadAuth().then(() => SplashScreen.hideAsync());
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated || isDemo) return;
+    if (!isAuthenticated) return;
 
     let active = true;
     const tick = async () => {
@@ -23,8 +24,24 @@ export default function RootLayout() {
         const online = await syncApi.healthCheck();
         if (!active) return;
         setOffline(!online);
-        if (online) await syncApi.sincronizarPendientes();
-      } catch {}
+        
+        if (online) {
+          // CRÍTICO: Sincronizar bitácoras pendientes
+          await syncApi.sincronizarPendientes();
+          
+          // NUEVO: Obtener delta de cambios del servidor
+          // para actualizar asignaciones que pueden haber cambiado
+          try {
+            const lastSync = await AsyncStorage.getItem('@saderh:last_sync_time');
+            await syncApi.delta(lastSync || undefined);
+          } catch (e) {
+            console.warn('Delta sync falló (no crítico):', e);
+            // Delta es complementario, si falla el dashboard lo reintentará
+          }
+        }
+      } catch (e) {
+        console.warn('Failed check tick:', e);
+      }
     };
 
     tick();
@@ -33,7 +50,7 @@ export default function RootLayout() {
       active = false;
       clearInterval(t);
     };
-  }, [isAuthenticated, isDemo, setOffline]);
+  }, [isAuthenticated, setOffline]);
 
   if (isLoading) return null;
 

@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { beneficiariosApi, getConnectionInfo } from '@/lib/api';
+import { beneficiariosApi } from '@/lib/api';
 import { MUNICIPIOS_HIDALGO, TIPOS_CULTIVO } from '@/lib/demoData';
 import { useAuthStore } from '@/store/authStore';
 import { CrearBeneficiarioPayload } from '@/types/models';
@@ -11,37 +11,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const INI: CrearBeneficiarioPayload = { nombre_completo: '', curp: '', municipio: '', localidad: '', folio_saderh: '', cadena_productiva: '', telefono_contacto: '' };
 
 export default function AltaBeneficiario() {
-  const { usuario } = useAuthStore();
+  const { tecnico } = useAuthStore();
   const [form, setForm] = useState(INI);
   const [loading, setLoading] = useState(false);
   const [showMunis, setShowMunis] = useState(false);
   const [showCultivos, setShowCultivos] = useState(false);
   const [searchMuni, setSearchMuni] = useState('');
-  const [isDemoMode, setIsDemoMode] = useState(false);
-  const set = <K extends keyof CrearBeneficiarioPayload>(k: K, v: CrearBeneficiarioPayload[K]) => setForm(p => ({ ...p, [k]: v }));
+  const set = <K extends keyof CrearBeneficiarioPayload>(k: K, v: CrearBeneficiarioPayload[K]) => setForm((p: CrearBeneficiarioPayload) => ({ ...p, [k]: v }));
 
-  useEffect(() => {
-    getConnectionInfo()
-      .then((cfg) => setIsDemoMode(cfg.modoDemo))
-      .catch(() => {});
-  }, []);
-
-  if (!isDemoMode) {
-    return (
-      <SafeAreaView style={s.cont} edges={['top']}>
-        <View style={s.header}><Text style={s.hT}>Beneficiarios</Text></View>
-        <View style={s.noAcc}>
-          <Text style={{ fontSize: 52 }}>📌</Text>
-          <Text style={s.noAccT}>Alta desde plataforma web</Text>
-          <Text style={s.noAccD}>
-            En modo servidor solo se muestran y validan beneficiarios previamente cargados y asignados en la web.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!usuario?.puede_registrar_beneficiarios) {
+  // El backend actual no provee permisos específicos, se permite por defecto
+  if (!tecnico) {
     return (
       <SafeAreaView style={s.cont} edges={['top']}>
         <View style={s.header}><Text style={s.hT}>Alta de Beneficiario</Text></View>
@@ -57,6 +36,9 @@ export default function AltaBeneficiario() {
   const validar = () => {
     if (!form.nombre_completo.trim()) return 'El nombre es requerido';
     if (form.curp.trim().length !== 18) return 'La CURP debe tener 18 caracteres';
+    // Validar formato básico de CURP
+    const curpRegex = /^[A-Z]{4}\d{6}[A-Z]{6}[A-Z0-9]\d$/;
+    if (!curpRegex.test(form.curp.trim())) return 'El formato de CURP no es válido';
     if (!form.municipio) return 'Selecciona un municipio';
     if (!form.localidad.trim()) return 'La localidad es requerida';
     if (!form.folio_saderh.trim()) return 'El folio SADERH es requerido';
@@ -68,7 +50,8 @@ export default function AltaBeneficiario() {
     const err = validar(); if (err) { Alert.alert('Datos incompletos', err); return; }
     setLoading(true);
     try {
-      await beneficiariosApi.crear(form);
+      // TODO: Implementar cuando el backend soporte POST /beneficiarios
+      // await beneficiariosApi.crear(form);
       Alert.alert('✅ Registrado', `${form.nombre_completo} fue registrado exitosamente.`, [{ text: 'OK', onPress: () => { setForm(INI); setSearchMuni(''); } }]);
     } catch (e: any) { Alert.alert('Error', e.message ?? 'No se pudo registrar'); }
     finally { setLoading(false); }

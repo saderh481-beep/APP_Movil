@@ -189,7 +189,8 @@ const svgFirma = (strokes: Trazo[]) => {
 };
 
 const benFallback = (asig: Asignacion): Beneficiario => ({
-  id_beneficiario: asig.id_beneficiario,
+  id: asig.id_beneficiario ?? 'unknown',
+  nombre: 'Beneficiario sin datos',
   nombre_completo: 'Beneficiario sin datos',
   curp: '—',
   municipio: '—',
@@ -199,7 +200,8 @@ const benFallback = (asig: Asignacion): Beneficiario => ({
   longitud_predio: null,
   cadena_productiva: '—',
   telefono_contacto: null,
-  estatus_beneficiario: 'ACTIVO',
+  activo: true,
+  id_beneficiario: asig.id_beneficiario,
 });
 
 const extFromUri = (uri: string, fallback: string) => {
@@ -220,7 +222,7 @@ const persistForOffline = async (fromUri: string, prefix: string) => {
 
 export default function DetalleAsignacion() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { usuario, setOffline } = useAuthStore();
+  const { tecnico, setOffline } = useAuthStore();
   const [paso, setPaso] = useState<Paso>(3);
   const [asig, setAsig] = useState<Asignacion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -251,16 +253,16 @@ export default function DetalleAsignacion() {
         return;
       }
       try {
-        const res = await asignacionesApi.listar(false);
+        const res = await asignacionesApi.listar();
         if (!active) return;
-        const visibles = (res.asignaciones ?? []).filter((a) => !usuario?.id_usuario || !a.id_tecnico || a.id_tecnico === usuario.id_usuario);
-        setAsig(visibles.find((a) => a.id_asignacion === idNum) ?? null);
+        const visibles = (res.asignaciones ?? []).filter((a) => !tecnico?.id || !a.id_tecnico || String(a.id_tecnico) === String(tecnico.id));
+        setAsig(visibles.find((a) => String(a.id_asignacion ?? a.id) === String(idNum)) ?? null);
       } catch {
         try {
           const rawCache = await AsyncStorage.getItem(ASIG_CACHE_KEY);
           const parsed = rawCache ? JSON.parse(rawCache) : [];
           const arr = Array.isArray(parsed) ? (parsed as Asignacion[]) : [];
-          const found = arr.find((a) => a.id_asignacion === idNum) ?? null;
+          const found = arr.find((a) => Number(a.id_asignacion) === idNum) ?? null;
           if (active) setAsig(found);
         } catch {
           if (active) setAsig(null);
@@ -280,7 +282,7 @@ export default function DetalleAsignacion() {
     return () => {
       active = false;
     };
-  }, [id, usuario?.id_usuario]);
+  }, [id, tecnico?.id]);
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -290,7 +292,7 @@ export default function DetalleAsignacion() {
     }).start();
   }, [paso, progress]);
 
-  const setDato = <K extends keyof DatosExtendidos>(k: K, v: DatosExtendidos[K]) => setDatos((p) => ({ ...p, [k]: v }));
+  const setDato = <K extends keyof DatosExtendidos>(k: K, v: DatosExtendidos[K]) => setDatos((p: DatosExtendidos) => ({ ...p, [k]: v }));
 
   const tomarFotoCampo = async (fromCamera: boolean) => {
     if (fromCamera) {
@@ -347,7 +349,7 @@ export default function DetalleAsignacion() {
   };
 
   const finalizar = async () => {
-    if (!asig || !usuario) return;
+    if (!asig || !tecnico) return;
     if (!fotoRostro) {
       Alert.alert('Foto requerida', 'Antes de firmar debes tomar foto del rostro del beneficiario.');
       return;
@@ -365,19 +367,22 @@ export default function DetalleAsignacion() {
     let firmaUri: string | null = null;
     try {
       const now = new Date().toISOString();
-      const payload: Omit<Bitacora, 'id_bitacora'> = {
-        id_usuario: usuario.id_usuario,
-        id_asignacion: asig.id_asignacion,
-        uuid_movil: `movil-${Date.now()}`,
-        fecha_hora_inicio: now,
-        fecha_hora_fin: now,
-        latitud: gps?.lat,
-        longitud: gps?.lon,
-        tipo_bitacora: asig.tipo_asignacion,
+      const payload: any = {
+        id: `movil-${Date.now()}`,
+        tipo: (asig?.tipo_asignacion ?? 'actividad') as 'beneficiario' | 'actividad',
+        estado: 'borrador',
+        tecnico_id: String(tecnico.id),
+        beneficiario_id: asig?.id_beneficiario ?? undefined,
+        cadena_productiva_id: undefined,
+        actividad_id: asig?.id_asignacion ?? undefined,
+        fecha_inicio: now,
+        coord_inicio: `${gps?.lat ?? 0},${gps?.lon ?? 0}`,
+        sincronizado: false,
+        created_at: now,
+        updated_at: now,
         datos_extendidos: datos,
         calificacion: datos.calidad_servicio,
         reporte: datos.observaciones,
-        sincronizado: false,
       };
 
       firmaUri = await crearArchivoFirma();
@@ -396,8 +401,14 @@ export default function DetalleAsignacion() {
       }
 
       try {
-        const creada = await bitacorasApi.crear(payload);
-        const idBitacora = creada.data?.id_bitacora;
+        const creada = await bitacorasApi.crear({
+          tipo: payload.tipo,
+          beneficiario_id: payload.beneficiario_id,
+          cadena_productiva_id: payload.cadena_productiva_id,
+          actividad_id: payload.actividad_id,
+          fecha_inicio: now,
+        });
+        const idBitacora = (creada as any)?.id_bitacora ?? (creada as any)?.data?.id_bitacora;
         if (!idBitacora) throw new Error('La API no devolvió id de bitácora.');
 
         await bitacorasApi.subirFotoRostro(idBitacora, fotoRostro);
@@ -411,7 +422,7 @@ export default function DetalleAsignacion() {
       } catch (e) {
         if (syncApi.isNetworkError(e)) {
           setOffline(true);
-          await guardarPendienteOffline(payload, firmaUri);
+          await guardarPendienteOffline(payload as any, firmaUri);
           Alert.alert(
             'Guardado en modo offline',
             'Se perdió conexión durante el envío. La visita quedó guardada y se sincronizará automáticamente.',

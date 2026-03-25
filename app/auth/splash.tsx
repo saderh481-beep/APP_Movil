@@ -1,11 +1,13 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
+import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 const W = Dimensions.get('window').width;
 
 export default function Splash() {
+  const { isAuthenticated } = useAuthStore();
   const scale = useRef(new Animated.Value(0.4)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const lineW = useRef(new Animated.Value(0)).current;
@@ -19,8 +21,15 @@ export default function Splash() {
       ]),
       Animated.timing(lineW, { toValue: W * 0.55, duration: 450, useNativeDriver: false }),
       Animated.timing(footerOp, { toValue: 1, duration: 500, useNativeDriver: true }),
-    ]).start(() => setTimeout(() => router.replace('/auth/conexion'), 900));
-  }, []);
+    ]).start(() => setTimeout(() => {
+      // Si hay sesión activa, ir directamente a tabs
+      if (isAuthenticated) {
+        router.replace('/tabs');
+      } else {
+        router.replace('/auth/conexion');
+      }
+    }, 900));
+  }, [isAuthenticated]);
 
   return (
     <View style={s.c}>

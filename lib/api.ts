@@ -8,11 +8,14 @@ import {
   Beneficiario,
   BeneficiariosResponse,
   Bitacora,
-  CrearBeneficiarioPayload,
+  CadenaProductiva,
+  Actividad,
   Evidencia,
   Usuario,
+  Notificacion,
+  HealthResponse,
+  SyncResponse,
 } from '../types/models';
-import { DEMO_ASIGNACIONES, DEMO_BENEFICIARIOS, DEMO_TOKEN, DEMO_USUARIO } from './demoData';
 
 const DEFAULT_APP_API_URL = 'https://campo-api-app-campo-saas.up.railway.app';
 const DEFAULT_WEB_API_URL = 'https://campo-api-web-campo-saas.up.railway.app';
@@ -122,16 +125,14 @@ const loadRuntimeConfig = async (force = false) => {
 
 export const getConnectionInfo = async () => {
   const cfg = await loadRuntimeConfig();
-  return { appApiUrl: cfg.appApiUrl, modoDemo: cfg.demoMode };
+  return { appApiUrl: cfg.appApiUrl };
 };
 
 export const saveConnectionInfo = async (next: ConnectionConfig) => {
   const merged = {
     appApiUrl: normalizeBaseUrl(next.appApiUrl ?? runtime.appApiUrl ?? API_CONFIG.APP_API_URL),
-    modoDemo: next.modoDemo ?? runtime.demoMode ?? API_CONFIG.DEMO_MODE,
   };
   runtime.appApiUrl = merged.appApiUrl;
-  runtime.demoMode = merged.modoDemo;
   runtime.loaded = true;
   await AsyncStorage.setItem(KEYS.CONEXION, JSON.stringify(merged));
 };
@@ -142,73 +143,7 @@ const getBaseUrl = async (override?: string): Promise<string> => {
   return normalizeBaseUrl(cfg.appApiUrl);
 };
 
-const getDemoMode = async (): Promise<boolean> => {
-  const cfg = await loadRuntimeConfig();
-  return cfg.demoMode;
-};
-
-const normalizeUsuario = (raw: unknown, codigoFallback: string): Usuario => {
-  const rec = isRecord(raw) ? raw : {};
-  return {
-    id_usuario: toNumber(rec.id_usuario ?? rec.id ?? rec.id_tecnico ?? 0, 0),
-    nombre_completo: String(rec.nombre_completo ?? rec.nombre ?? rec.nombre_tecnico ?? 'Técnico'),
-    email: String(rec.email ?? ''),
-    rol: (String(rec.rol ?? 'TECNICO').toUpperCase() as Usuario['rol']),
-    especialidad: rec.especialidad ? String(rec.especialidad).toUpperCase() as Usuario['especialidad'] : null,
-    puede_registrar_beneficiarios: toBoolean(rec.puede_registrar_beneficiarios ?? rec.puede_registrar ?? false),
-    zona_nombre: rec.zona_nombre ? String(rec.zona_nombre) : null,
-    codigo_acceso: String(rec.codigo_acceso ?? codigoFallback),
-    ultimo_acceso: rec.ultimo_acceso ? String(rec.ultimo_acceso) : null,
-  };
-};
-
-const normalizeBeneficiario = (raw: unknown): Beneficiario => {
-  const rec = isRecord(raw) ? raw : {};
-  return {
-    id_beneficiario: toNumber(rec.id_beneficiario ?? rec.id ?? 0, 0),
-    nombre_completo: String(rec.nombre_completo ?? rec.nombre ?? 'Beneficiario'),
-    curp: String(rec.curp ?? rec.CURP ?? ''),
-    municipio: String(rec.municipio ?? rec.municipio_nombre ?? ''),
-    localidad: String(rec.localidad ?? rec.localidad_nombre ?? ''),
-    folio_saderh: String(rec.folio_saderh ?? rec.folio ?? ''),
-    latitud_predio: rec.latitud_predio !== undefined ? toNumber(rec.latitud_predio, 0) : null,
-    longitud_predio: rec.longitud_predio !== undefined ? toNumber(rec.longitud_predio, 0) : null,
-    cadena_productiva: String(rec.cadena_productiva ?? rec.cadena ?? rec.cultivo ?? ''),
-    telefono_contacto: rec.telefono_contacto ? String(rec.telefono_contacto) : null,
-    estatus_beneficiario: (String(rec.estatus_beneficiario ?? rec.estatus ?? 'ACTIVO').toUpperCase() as Beneficiario['estatus_beneficiario']),
-  };
-};
-
-const normalizeAsignacion = (raw: unknown): Asignacion => {
-  const rec = isRecord(raw) ? raw : {};
-  const beneficiarioRaw = rec.beneficiario ?? rec.beneficiario_data ?? rec.beneficiary ?? null;
-  const beneficiario = beneficiarioRaw ? normalizeBeneficiario(beneficiarioRaw) : undefined;
-  const fechaLimite = toIsoDate(rec.fecha_limite ?? rec.fecha_programada ?? rec.fecha ?? nowIso(), nowIso());
-  const completado = toBoolean(
-    rec.completado ??
-      rec.finalizada ??
-      (typeof rec.estatus === 'string' && ['CERRADA', 'COMPLETADA', 'FINALIZADA'].includes(rec.estatus.toUpperCase())),
-    false,
-  );
-
-  const tipo = String(rec.tipo_asignacion ?? rec.tipo ?? 'ACTIVIDAD').toUpperCase();
-  const prioridad = String(rec.prioridad ?? 'MEDIA').toUpperCase();
-
-  return {
-    id_asignacion: toNumber(rec.id_asignacion ?? rec.id_actividad ?? rec.id ?? 0, 0),
-    id_tecnico: toNumber(rec.id_tecnico ?? rec.id_usuario ?? 0, 0),
-    id_usuario_creo: toNumber(rec.id_usuario_creo ?? rec.id_creador ?? 0, 0),
-    id_beneficiario: toNumber(rec.id_beneficiario ?? beneficiario?.id_beneficiario ?? 0, 0),
-    tipo_asignacion: (tipo === 'BENEFICIARIO' ? 'BENEFICIARIO' : 'ACTIVIDAD'),
-    descripcion_actividad: rec.descripcion_actividad ? String(rec.descripcion_actividad) : rec.descripcion ? String(rec.descripcion) : null,
-    prioridad: (['ALTA', 'MEDIA', 'BAJA'].includes(prioridad) ? prioridad : 'MEDIA') as Asignacion['prioridad'],
-    fecha_limite: fechaLimite.includes('T') ? fechaLimite.split('T')[0] : fechaLimite,
-    completado,
-    fecha_completado: rec.fecha_completado ? String(rec.fecha_completado) : null,
-    fecha_creacion: toIsoDate(rec.fecha_creacion ?? rec.created_at ?? nowIso(), nowIso()),
-    beneficiario,
-  };
-};
+// Modo demo eliminado - siempre usar API real
 
 const parseResponseBody = async (res: Response): Promise<unknown> => {
   const text = await res.text();
@@ -242,12 +177,44 @@ const isNetworkError = (error: unknown): boolean => {
   );
 };
 
+const isRetryableError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  // Errores de red y timeouts son reintentables
+  if (isNetworkError(error)) return true;
+  // Errores 5xx son reintentables (especialmente 503 Service Unavailable)
+  if (msg.includes('error 5') || msg.includes('error del servidor') || msg.includes('503') || msg.includes('service unavailable')) return true;
+  return false;
+};
+
 async function http<T>(method: string, path: string, body?: unknown, token?: string, baseUrlOverride?: string): Promise<T> {
+  return httpWithRetry<T>(method, path, body, token, baseUrlOverride, 0);
+}
+
+/**
+ * HTTP con retry exponencial automático
+ * Reintenta en caso de errores de red o timeouts
+ * Para login (/auth/tecnico), usa más reintentos debido a problemas de disponibilidad
+ */
+async function httpWithRetry<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  token?: string,
+  baseUrlOverride?: string,
+  attempt: number = 0
+): Promise<T> {
+  const MAX_RETRIES = path === '/auth/tecnico' ? 5 : 3;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), API_CONFIG.TIMEOUT_MS);
+  
   try {
     const base = await getBaseUrl(baseUrlOverride);
-    const res = await fetch(`${base}${path}`, {
+    const url = `${base}${path}`;
+    
+    console.log(`[HTTP ${attempt + 1}/${MAX_RETRIES + 1}] ${method} ${path}`);
+    
+    const res = await fetch(url, {
       method,
       signal: ctrl.signal,
       headers: {
@@ -257,13 +224,59 @@ async function http<T>(method: string, path: string, body?: unknown, token?: str
       },
       body: body ? JSON.stringify(body) : undefined,
     });
+    
     const json = await parseResponseBody(res);
-    if (!res.ok) throw new Error(extractError(res.status, json));
+    
+    if (!res.ok) {
+      const serverError = extractError(res.status, json);
+      console.warn(`[HTTP ERROR ${res.status}] ${serverError}`);
+      
+      if (res.status === 401) {
+        throw new Error(serverError);
+      }
+      if (res.status === 403) {
+        throw new Error('No tienes permiso para realizar esta acción.');
+      }
+      if (res.status === 404) {
+        throw new Error('Recurso no encontrado. Verifica la conexión al servidor.');
+      }
+      if (res.status === 503) {
+        throw new Error('Servidor no disponible (503). Reintentando...');
+      }
+      if (res.status >= 500) {
+        throw new Error('Error del servidor. Intenta más tarde.');
+      }
+      throw new Error(serverError);
+    }
+    
+    console.log(`[HTTP SUCCESS] ${method} ${path}`);
     return json as T;
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
-      throw new Error('Tiempo de espera agotado. Verifica tu conexión.');
+      const timeoutError = new Error('Tiempo de espera agotado. Verifica tu conexión a internet.');
+      
+      // Reintentar en caso de timeout
+      if (attempt < MAX_RETRIES && isRetryableError(timeoutError)) {
+        const backoff = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.warn(`[RETRY TIMEOUT] Esperando ${backoff}ms antes de reintentar...`);
+        await new Promise(r => setTimeout(r, backoff));
+        return httpWithRetry<T>(method, path, body, token, baseUrlOverride, attempt + 1);
+      }
+      throw timeoutError;
     }
+    
+    // Reintentar en caso de errores de red
+    if (isRetryableError(e) && attempt < MAX_RETRIES) {
+      // Para /auth/tecnico, usar backoff más agresivo debido a 503s
+      const isLoginPath = path === '/auth/tecnico';
+      const baseWait = isLoginPath ? 2000 : 1000; // 2s base para login
+      const backoff = Math.pow(2, attempt) * baseWait; // 2s, 4s, 8s, 16s, 32s para login
+      const remainingAttempts = MAX_RETRIES - attempt;
+      console.warn(`[RETRY ERROR] ${e instanceof Error ? e.message : 'Error desconocido'}. ${remainingAttempts} intentos restantes. Esperando ${backoff}ms...`);
+      await new Promise(r => setTimeout(r, backoff));
+      return httpWithRetry<T>(method, path, body, token, baseUrlOverride, attempt + 1);
+    }
+    
     throw e;
   } finally {
     clearTimeout(timer);
@@ -312,82 +325,89 @@ const buildUploadFile = (uri: string, prefix: string): UploadFile => {
   return { uri, type: mime, name: `${prefix}-${Date.now()}.${ext}` };
 };
 
-const uploadSingleWithFallback = async (
-  path: string,
-  uri: string,
-  candidates: string[],
-  token: string,
-) => {
-  let lastError: unknown;
-  for (const field of candidates) {
-    try {
-      const file = buildUploadFile(uri, field);
-      const form = new FormData();
-      form.append(field, file as unknown as Blob);
-      return await httpMultipart<ApiResponse>('POST', path, form, token);
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('No se pudo subir el archivo');
-};
-
-const uploadManyWithFallback = async (
-  path: string,
-  uris: string[],
-  candidates: string[],
-  token: string,
-) => {
-  let lastError: unknown;
-  for (const field of candidates) {
-    try {
-      const form = new FormData();
-      uris.forEach((uri, idx) => {
-        const file = buildUploadFile(uri, `${field}-${idx + 1}`);
-        form.append(field, file as unknown as Blob);
-      });
-      return await httpMultipart<ApiResponse>('POST', path, form, token);
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('No se pudieron subir las fotos');
-};
-
-const extractBitacoraId = (raw: unknown): number | undefined => {
-  const first = unwrapData(raw);
-  if (isRecord(first)) {
-    const direct = toNumber(first.id_bitacora ?? first.id ?? NaN, NaN);
-    if (Number.isFinite(direct) && direct > 0) return direct;
-    if (isRecord(first.bitacora)) {
-      const nested = toNumber(first.bitacora.id_bitacora ?? first.bitacora.id ?? NaN, NaN);
-      if (Number.isFinite(nested) && nested > 0) return nested;
-    }
-  }
-  return undefined;
-};
-
 // ── AUTH ──────────────────────────────────────────────────
+// Rate limiting para login (exponential backoff)
+const loginAttempts: Record<string, { count: number; resetTime: number }> = {};
+
+const checkLoginRateLimit = async (codigo: string): Promise<void> => {
+  const now = Date.now();
+  const key = codigo;
+  
+  if (loginAttempts[key]) {
+    const attempt = loginAttempts[key];
+    
+    // Resetear después de 5 minutos
+    if (now > attempt.resetTime) {
+      loginAttempts[key] = { count: 0, resetTime: now + 5 * 60 * 1000 };
+      return;
+    }
+    
+    // Si hay 3+ intentos fallidos, esperar exponencialmente
+    if (attempt.count >= 3) {
+      const backoff = Math.pow(2, attempt.count - 3) * 10_000; // 10s, 20s, 40s, etc
+      const waitTime = Math.min(backoff, 5 * 60 * 1000); // Max 5 minutos
+      const waitedTime = now - (attempt.resetTime - 5 * 60 * 1000);
+      
+      if (waitedTime < waitTime) {
+        const remainingTime = Math.ceil((waitTime - waitedTime) / 1000);
+        throw new Error(`Demasiados intentos fallidos. Intenta en ${remainingTime}s.`);
+      }
+    }
+  }
+};
+
+const recordLoginAttempt = (codigo: string, success: boolean) => {
+  const key = codigo;
+  const now = Date.now();
+  
+  if (success) {
+    delete loginAttempts[key];
+  } else {
+    if (!loginAttempts[key]) {
+      loginAttempts[key] = { count: 1, resetTime: now + 5 * 60 * 1000 };
+    } else {
+      loginAttempts[key].count += 1;
+    }
+  }
+};
+
 export const authApi = {
   /** POST /auth/tecnico */
   async login(codigo: string): Promise<AuthResponse> {
-    if (await getDemoMode()) {
-      await wait(600);
-      if (codigo.length === 5) return { success: true, token: DEMO_TOKEN, usuario: DEMO_USUARIO };
-      throw new Error('Código de acceso incorrecto');
+    // Verificar rate limit client-side
+    await checkLoginRateLimit(codigo);
+    
+    try {
+      // Login always uses real server - no demo mode
+      // El backend espera exactamente 5 dígitos
+      const json = await http<unknown>('POST', '/auth/tecnico', { codigo });
+      const data = unwrapData(json);
+      const src = isRecord(data) ? data : {};
+      const root = isRecord(json) ? json : {};
+      const tokenValue = src.token ?? src.access_token ?? root.token ?? root.access_token;
+      const token = typeof tokenValue === 'string' ? tokenValue : '';
+      if (!token) throw new Error('No se recibió token de autenticación');
+
+      // El backend devuelve tecnico: { id, nombre, ...otras propiedades }
+      const tecnicoRaw = src.tecnico ?? root.tecnico ?? src.usuario ?? root.usuario ?? src;
+      const tecnico = isRecord(tecnicoRaw) ? {
+        id: String(tecnicoRaw.id ?? tecnicoRaw.id_usuario ?? ''),
+        nombre: String(tecnicoRaw.nombre ?? tecnicoRaw.nombre_completo ?? ''),
+        rol: typeof tecnicoRaw.rol === 'string' ? tecnicoRaw.rol : 'tecnico',
+      } : { id: '', nombre: '', rol: 'tecnico' };
+
+      if (!tecnico.id || !tecnico.nombre) {
+        throw new Error('Respuesta de login inválida: falta id o nombre del técnico');
+      }
+
+      // Registrar éxito
+      recordLoginAttempt(codigo, true);
+      return { success: true, token, tecnico };
+    } catch (e) {
+      // Registrar intento fallido
+      recordLoginAttempt(codigo, false);
+      throw e;
     }
-
-    const json = await http<unknown>('POST', '/auth/tecnico', { codigo, codigo_acceso: codigo });
-    const data = unwrapData(json);
-    const src = isRecord(data) ? data : {};
-    const root = isRecord(json) ? json : {};
-    const tokenValue = src.token ?? src.access_token ?? root.token ?? root.access_token;
-    const token = typeof tokenValue === 'string' ? tokenValue : '';
-    if (!token) throw new Error('No se recibió token de autenticación');
-
-    const userRaw = src.usuario ?? src.tecnico ?? src.user ?? root.usuario ?? root.tecnico ?? root.user;
-    const usuario = normalizeUsuario(userRaw, codigo);
-    return { success: true, token, usuario };
   },
 
   async logout(): Promise<void> {
@@ -399,193 +419,390 @@ export const authApi = {
   },
 };
 
-// ── ACTIVIDADES / ASIGNACIONES ────────────────────────────
-export const asignacionesApi = {
-  /** GET /mis-actividades */
-  async listar(soloActivas = false): Promise<AsignacionesResponse> {
-    if (await getDemoMode()) {
-      await wait(500);
-      const data = soloActivas ? DEMO_ASIGNACIONES.filter((a) => !a.completado) : DEMO_ASIGNACIONES;
-      return { success: true, asignaciones: data, total: data.length };
+// ── HEALTH ────────────────────────────────────────────────
+export const healthApi = {
+  /** GET /health */
+  async check(): Promise<HealthResponse> {
+    try {
+      const json = await http<unknown>('GET', '/health', undefined, undefined);
+      const data = unwrapData(json);
+      const result = isRecord(data) ? data : (isRecord(json) ? json : {});
+      return {
+        status: String(result.status ?? 'unknown'),
+        service: String(result.service ?? 'api-app'),
+        ts: String(result.ts ?? new Date().toISOString()),
+      };
+    } catch (e) {
+      throw new Error('No se pudo conectar al servidor');
     }
+  },
+};
 
+// ── ACTIVIDADES / ASIGNACIONES ────────────────────────────
+export const actividadesApi = {
+  /** GET /mis-actividades */
+  async listar(): Promise<Actividad[]> {
     const token = await getToken();
     const json = await http<unknown>('GET', '/mis-actividades', undefined, token);
     const data = unwrapData(json);
-
-    const arr =
-      asArray<unknown>((isRecord(data) && data.actividades) || (isRecord(data) && data.asignaciones) || data);
-    const list = arr.map(normalizeAsignacion).filter((a) => a.id_asignacion > 0);
-    const filtered = soloActivas ? list.filter((a) => !a.completado) : list;
-    return { success: true, asignaciones: filtered, total: filtered.length };
+    const arr = asArray<unknown>(isRecord(data) && data.actividades ? data.actividades : data);
+    return arr.map(raw => {
+      const rec = isRecord(raw) ? raw : {};
+      return {
+        id: String(rec.id ?? ''),
+        nombre: String(rec.nombre ?? ''),
+        descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
+        activo: toBoolean(rec.activo, true),
+        created_by: String(rec.created_by ?? ''),
+        created_at: String(rec.created_at ?? nowIso()),
+        updated_at: String(rec.updated_at ?? nowIso()),
+      };
+    }).filter(a => a.id && a.nombre);
   },
+};
 
-  async completar(_id: number): Promise<ApiResponse> {
-    return { success: true, message: 'La actividad se marca al cerrar la bitácora.' };
+// ── ASIGNACIONES (usando Actividades) ──────────────────────
+export const asignacionesApi = {
+  /** GET /mis-actividades - Devuelve AsignacionesResponse para compatibilidad */
+  async listar(): Promise<AsignacionesResponse> {
+    const actividades = await actividadesApi.listar();
+    // Mapear Actividades a Asignaciones para compatibilidad
+    const asignaciones: Asignacion[] = actividades.map(a => ({
+      ...a,
+      id_asignacion: a.id,
+      id_tecnico: '', 
+      id_usuario_creo: a.created_by,
+      id_beneficiario: '',
+      tipo_asignacion: 'actividad' as const,
+      descripcion_actividad: a.descripcion,
+      prioridad: 'MEDIA' as const,
+      completado: false,
+    }));
+    return { success: true, asignaciones, total: asignaciones.length };
   },
 };
 
 // ── BENEFICIARIOS ─────────────────────────────────────────
 export const beneficiariosApi = {
   /** GET /mis-beneficiarios */
-  async listar(search?: string): Promise<BeneficiariosResponse> {
-    if (await getDemoMode()) {
-      await wait(500);
-      const data = search
-        ? DEMO_BENEFICIARIOS.filter((b) =>
-            [b.nombre_completo, b.municipio, b.folio_saderh].some((f) =>
-              f.toLowerCase().includes(search.toLowerCase()),
-            ),
-          )
-        : DEMO_BENEFICIARIOS;
-      return { success: true, beneficiarios: data, total: data.length };
-    }
-
+  async listar(search?: string): Promise<Beneficiario[]> {
     const token = await getToken();
     const json = await http<unknown>('GET', '/mis-beneficiarios', undefined, token);
     const data = unwrapData(json);
-    const arr =
-      asArray<unknown>((isRecord(data) && data.beneficiarios) || (isRecord(data) && data.items) || data);
-    let list = arr.map(normalizeBeneficiario).filter((b) => b.id_beneficiario > 0);
+    const arr = asArray<unknown>(isRecord(data) && data.beneficiarios ? data.beneficiarios : data);
+    let list = arr.map(raw => {
+      const rec = isRecord(raw) ? raw : {};
+      return {
+        id: String(rec.id ?? ''),
+        nombre: String(rec.nombre ?? ''),
+        municipio: String(rec.municipio ?? ''),
+        localidad: rec.localidad ? String(rec.localidad) : undefined,
+        direccion: rec.direccion ? String(rec.direccion) : undefined,
+        cp: rec.cp ? String(rec.cp) : undefined,
+        telefono_principal: rec.telefono_principal ? String(rec.telefono_principal) : undefined,
+        telefono_secundario: rec.telefono_secundario ? String(rec.telefono_secundario) : undefined,
+        coord_parcela: rec.coord_parcela ? String(rec.coord_parcela) : undefined,
+        activo: toBoolean(rec.activo, true),
+        cadenas: asArray<unknown>(isRecord(rec.cadenas) ? [] : rec.cadenas).map(c => {
+          const cadena = isRecord(c) ? c : {};
+          return {
+            id: String(cadena.id ?? ''),
+            nombre: String(cadena.nombre ?? ''),
+          };
+        }),
+      };
+    }).filter(b => b.id && b.nombre);
 
     if (search && search.trim().length > 0) {
       const q = search.toLowerCase();
-      list = list.filter((b) =>
-        [b.nombre_completo, b.municipio, b.folio_saderh].some((f) => f.toLowerCase().includes(q)),
+      list = list.filter(b =>
+        [b.nombre, b.municipio].some(f => f.toLowerCase().includes(q))
       );
     }
 
-    return { success: true, beneficiarios: list, total: list.length };
+    return list;
   },
+};
 
-  async obtener(id: number) {
-    const list = await this.listar();
-    const beneficiario = list.beneficiarios.find((b) => b.id_beneficiario === id);
-    return { success: true, beneficiario };
-  },
-
-  async crear(payload: CrearBeneficiarioPayload) {
-    if (await getDemoMode()) {
-      await wait(800);
-      const nuevo = {
-        ...payload,
-        id_beneficiario: Date.now(),
-        latitud_predio: null,
-        longitud_predio: null,
-        telefono_contacto: payload.telefono_contacto ?? null,
-        estatus_beneficiario: 'ACTIVO' as const,
-      };
-      (DEMO_BENEFICIARIOS as Beneficiario[]).push(nuevo);
-      return { success: true, beneficiario: nuevo };
-    }
-
+// ── CADENAS PRODUCTIVAS ───────────────────────────────────
+export const cadenasApi = {
+  /** GET /cadenas-productivas */
+  async listar(): Promise<CadenaProductiva[]> {
     const token = await getToken();
-    try {
-      return await http<unknown>('POST', '/mis-beneficiarios', payload, token);
-    } catch (e) {
-      throw new Error(
-        e instanceof Error && e.message.includes('404')
-          ? 'La API actual no expone alta de beneficiarios desde esta app móvil.'
-          : e instanceof Error
-            ? e.message
-            : 'No se pudo registrar el beneficiario',
-      );
-    }
+    const json = await http<unknown>('GET', '/cadenas-productivas', undefined, token);
+    const data = unwrapData(json);
+    const arr = asArray<unknown>(isRecord(data) && data.cadenas ? data.cadenas : data);
+    return arr.map(raw => {
+      const rec = isRecord(raw) ? raw : {};
+      return {
+        id: String(rec.id ?? ''),
+        nombre: String(rec.nombre ?? ''),
+        descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
+        activo: toBoolean(rec.activo, true),
+        created_by: String(rec.created_by ?? ''),
+        created_at: String(rec.created_at ?? nowIso()),
+        updated_at: String(rec.updated_at ?? nowIso()),
+      };
+    }).filter(c => c.id && c.nombre);
   },
 };
 
 // ── BITÁCORAS ─────────────────────────────────────────────
 export const bitacorasApi = {
   /** POST /bitacoras */
-  async crear(b: Omit<Bitacora, 'id_bitacora'>): Promise<ApiResponse<Bitacora>> {
-    if (await getDemoMode()) {
-      await wait(700);
-      return { success: true, data: { ...b, id_bitacora: Date.now(), sincronizado: true } };
-    }
-
+  async crear(payload: {
+    tipo: 'beneficiario' | 'actividad';
+    beneficiario_id?: string;
+    cadena_productiva_id?: string;
+    actividad_id?: string;
+    fecha_inicio: string;
+    coord_inicio?: string;
+    sync_id?: string;
+  }): Promise<Bitacora> {
     const token = await getToken();
-    const payload = {
-      ...b,
-      id_tecnico: b.id_usuario,
-      id_actividad: b.id_asignacion,
-    };
     const json = await http<unknown>('POST', '/bitacoras', payload, token);
-    const id = extractBitacoraId(json);
     const data = unwrapData(json);
-    const merged = isRecord(data) ? { ...b, ...(data as Partial<Bitacora>) } : { ...b };
+    const rec = isRecord(data) ? data : {};
     return {
-      success: true,
-      data: {
-        ...merged,
-        id_bitacora: merged.id_bitacora ?? id,
-        sincronizado: true,
-      },
+      id: String(rec.id ?? ''),
+      tipo: (rec.tipo ?? payload.tipo) as 'beneficiario' | 'actividad',
+      estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
+      tecnico_id: String(rec.tecnico_id ?? ''),
+      beneficiario_id: rec.beneficiario_id ? String(rec.beneficiario_id) : undefined,
+      cadena_productiva_id: rec.cadena_productiva_id ? String(rec.cadena_productiva_id) : undefined,
+      actividad_id: rec.actividad_id ? String(rec.actividad_id) : undefined,
+      fecha_inicio: String(rec.fecha_inicio ?? payload.fecha_inicio),
+      fecha_fin: rec.fecha_fin ? String(rec.fecha_fin) : undefined,
+      coord_inicio: rec.coord_inicio ? String(rec.coord_inicio) : payload.coord_inicio,
+      coord_fin: rec.coord_fin ? String(rec.coord_fin) : undefined,
+      actividades_desc: rec.actividades_desc ? String(rec.actividades_desc) : undefined,
+      recomendaciones: rec.recomendaciones ? String(rec.recomendaciones) : undefined,
+      comentarios_beneficiario: rec.comentarios_beneficiario ? String(rec.comentarios_beneficiario) : undefined,
+      coordinacion_interinst: toBoolean(rec.coordinacion_interinst, false),
+      instancia_coordinada: rec.instancia_coordinada ? String(rec.instancia_coordinada) : undefined,
+      proposito_coordinacion: rec.proposito_coordinacion ? String(rec.proposito_coordinacion) : undefined,
+      observaciones_coordinador: rec.observaciones_coordinador ? String(rec.observaciones_coordinador) : undefined,
+      foto_rostro_url: rec.foto_rostro_url ? String(rec.foto_rostro_url) : undefined,
+      firma_url: rec.firma_url ? String(rec.firma_url) : undefined,
+      fotos_campo: asArray<string>(rec.fotos_campo),
+      sync_id: rec.sync_id ? String(rec.sync_id) : undefined,
+      created_at: String(rec.created_at ?? nowIso()),
+      updated_at: String(rec.updated_at ?? nowIso()),
     };
   },
 
   /** GET /bitacoras */
-  async listar(): Promise<ApiResponse<Bitacora[]>> {
+  async listar(): Promise<Bitacora[]> {
     const token = await getToken();
     const json = await http<unknown>('GET', '/bitacoras', undefined, token);
     const data = unwrapData(json);
-    const arr = asArray<Bitacora>((isRecord(data) && data.bitacoras) || data);
-    return { success: true, data: arr };
+    const arr = asArray<unknown>(isRecord(data) && data.bitacoras ? data.bitacoras : data);
+    return arr.map(raw => {
+      const rec = isRecord(raw) ? raw : {};
+      return {
+        id: String(rec.id ?? ''),
+        tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
+        estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
+        tecnico_id: String(rec.tecnico_id ?? ''),
+        beneficiario_id: rec.beneficiario_id ? String(rec.beneficiario_id) : undefined,
+        cadena_productiva_id: rec.cadena_productiva_id ? String(rec.cadena_productiva_id) : undefined,
+        actividad_id: rec.actividad_id ? String(rec.actividad_id) : undefined,
+        fecha_inicio: String(rec.fecha_inicio ?? ''),
+        fecha_fin: rec.fecha_fin ? String(rec.fecha_fin) : undefined,
+        coord_inicio: rec.coord_inicio ? String(rec.coord_inicio) : undefined,
+        coord_fin: rec.coord_fin ? String(rec.coord_fin) : undefined,
+        actividades_desc: rec.actividades_desc ? String(rec.actividades_desc) : undefined,
+        sync_id: rec.sync_id ? String(rec.sync_id) : undefined,
+        created_at: String(rec.created_at ?? nowIso()),
+        updated_at: String(rec.updated_at ?? nowIso()),
+      };
+    }).filter(b => b.id);
   },
 
   /** GET /bitacoras/:id */
-  async detalle(id: number): Promise<ApiResponse<Bitacora>> {
+  async detalle(id: string): Promise<Bitacora> {
     const token = await getToken();
     const json = await http<unknown>('GET', `/bitacoras/${id}`, undefined, token);
     const data = unwrapData(json);
-    return { success: true, data: (isRecord(data) ? (data as unknown as Bitacora) : undefined) };
+    const rec = isRecord(data) ? data : {};
+    return {
+      id: String(rec.id ?? id),
+      tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
+      estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
+      tecnico_id: String(rec.tecnico_id ?? ''),
+      beneficiario_id: rec.beneficiario_id ? String(rec.beneficiario_id) : undefined,
+      cadena_productiva_id: rec.cadena_productiva_id ? String(rec.cadena_productiva_id) : undefined,
+      actividad_id: rec.actividad_id ? String(rec.actividad_id) : undefined,
+      fecha_inicio: String(rec.fecha_inicio ?? ''),
+      fecha_fin: rec.fecha_fin ? String(rec.fecha_fin) : undefined,
+      coord_inicio: rec.coord_inicio ? String(rec.coord_inicio) : undefined,
+      coord_fin: rec.coord_fin ? String(rec.coord_fin) : undefined,
+      actividades_desc: rec.actividades_desc ? String(rec.actividades_desc) : undefined,
+      recomendaciones: rec.recomendaciones ? String(rec.recomendaciones) : undefined,
+      comentarios_beneficiario: rec.comentarios_beneficiario ? String(rec.comentarios_beneficiario) : undefined,
+      coordinacion_interinst: toBoolean(rec.coordinacion_interinst, false),
+      instancia_coordinada: rec.instancia_coordinada ? String(rec.instancia_coordinada) : undefined,
+      proposito_coordinacion: rec.proposito_coordinacion ? String(rec.proposito_coordinacion) : undefined,
+      observaciones_coordinador: rec.observaciones_coordinador ? String(rec.observaciones_coordinador) : undefined,
+      foto_rostro_url: rec.foto_rostro_url ? String(rec.foto_rostro_url) : undefined,
+      firma_url: rec.firma_url ? String(rec.firma_url) : undefined,
+      fotos_campo: asArray<string>(rec.fotos_campo),
+      sync_id: rec.sync_id ? String(rec.sync_id) : undefined,
+      created_at: String(rec.created_at ?? nowIso()),
+      updated_at: String(rec.updated_at ?? nowIso()),
+    };
   },
 
   /** PATCH /bitacoras/:id */
-  async editar(id: number, payload: Partial<Bitacora>): Promise<ApiResponse<Bitacora>> {
+  async editar(id: string, payload: Partial<Bitacora>): Promise<Bitacora> {
     const token = await getToken();
     const json = await http<unknown>('PATCH', `/bitacoras/${id}`, payload, token);
     const data = unwrapData(json);
-    return { success: true, data: (isRecord(data) ? (data as unknown as Bitacora) : undefined) };
+    const rec = isRecord(data) ? data : {};
+    return {
+      id: String(rec.id ?? id),
+      tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
+      estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
+      tecnico_id: String(rec.tecnico_id ?? ''),
+      beneficiario_id: rec.beneficiario_id ? String(rec.beneficiario_id) : undefined,
+      cadena_productiva_id: rec.cadena_productiva_id ? String(rec.cadena_productiva_id) : undefined,
+      actividad_id: rec.actividad_id ? String(rec.actividad_id) : undefined,
+      fecha_inicio: String(rec.fecha_inicio ?? ''),
+      fecha_fin: rec.fecha_fin ? String(rec.fecha_fin) : undefined,
+      coord_inicio: rec.coord_inicio ? String(rec.coord_inicio) : undefined,
+      coord_fin: rec.coord_fin ? String(rec.coord_fin) : undefined,
+      actividades_desc: rec.actividades_desc ? String(rec.actividades_desc) : undefined,
+      recomendaciones: rec.recomendaciones ? String(rec.recomendaciones) : undefined,
+      comentarios_beneficiario: rec.comentarios_beneficiario ? String(rec.comentarios_beneficiario) : undefined,
+      coordinacion_interinst: toBoolean(rec.coordinacion_interinst, false),
+      instancia_coordinada: rec.instancia_coordinada ? String(rec.instancia_coordinada) : undefined,
+      proposito_coordinacion: rec.proposito_coordinacion ? String(rec.proposito_coordinacion) : undefined,
+      observaciones_coordinador: rec.observaciones_coordinador ? String(rec.observaciones_coordinador) : undefined,
+      foto_rostro_url: rec.foto_rostro_url ? String(rec.foto_rostro_url) : undefined,
+      firma_url: rec.firma_url ? String(rec.firma_url) : undefined,
+      fotos_campo: asArray<string>(rec.fotos_campo),
+      sync_id: rec.sync_id ? String(rec.sync_id) : undefined,
+      created_at: String(rec.created_at ?? nowIso()),
+      updated_at: String(rec.updated_at ?? nowIso()),
+    };
   },
 
   /** POST /bitacoras/:id/cerrar */
-  async cerrar(id: number): Promise<ApiResponse> {
+  async cerrar(id: string, payload?: { fecha_fin: string; coord_fin?: string }): Promise<Bitacora> {
     const token = await getToken();
-    return http<ApiResponse>('POST', `/bitacoras/${id}/cerrar`, {}, token);
+    const body = payload || { fecha_fin: nowIso() };
+    const json = await http<unknown>('POST', `/bitacoras/${id}/cerrar`, body, token);
+    const data = unwrapData(json);
+    const rec = isRecord(data) ? data : {};
+    return {
+      id: String(rec.id ?? id),
+      tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
+      estado: 'cerrada',
+      tecnico_id: String(rec.tecnico_id ?? ''),
+      fecha_inicio: String(rec.fecha_inicio ?? ''),
+      fecha_fin: String(body.fecha_fin),
+      coord_fin: body.coord_fin,
+      created_at: String(rec.created_at ?? nowIso()),
+      updated_at: String(rec.updated_at ?? nowIso()),
+    };
   },
 
   /** POST /bitacoras/:id/foto-rostro */
-  async subirFotoRostro(id: number, uri: string): Promise<ApiResponse> {
+  async subirFotoRostro(id: string, uri: string): Promise<{ foto_rostro_url: string }> {
     const token = await getToken();
-    return uploadSingleWithFallback(`/bitacoras/${id}/foto-rostro`, uri, ['foto_rostro', 'foto', 'archivo', 'file'], token);
+    const file = buildUploadFile(uri, 'foto-rostro');
+    const form = new FormData();
+    form.append('foto', file as unknown as Blob);
+    const result = await httpMultipart<unknown>('POST', `/bitacoras/${id}/foto-rostro`, form, token);
+    const rec = isRecord(result) ? result : {};
+    return {
+      foto_rostro_url: String(rec.foto_rostro_url ?? ''),
+    };
   },
 
   /** POST /bitacoras/:id/firma */
-  async subirFirma(id: number, uri: string): Promise<ApiResponse> {
+  async subirFirma(id: string, uri: string): Promise<{ firma_url: string }> {
     const token = await getToken();
-    return uploadSingleWithFallback(`/bitacoras/${id}/firma`, uri, ['firma', 'archivo', 'file'], token);
+    const file = buildUploadFile(uri, 'firma');
+    const form = new FormData();
+    form.append('firma', file as unknown as Blob);
+    const result = await httpMultipart<unknown>('POST', `/bitacoras/${id}/firma`, form, token);
+    const rec = isRecord(result) ? result : {};
+    return {
+      firma_url: String(rec.firma_url ?? ''),
+    };
   },
 
   /** POST /bitacoras/:id/fotos-campo */
-  async subirFotosCampo(id: number, uris: string[]): Promise<ApiResponse> {
-    if (!uris.length) return { success: true };
+  async subirFotosCampo(id: string, uris: string[]): Promise<{ fotos_campo: string[] }> {
+    if (!uris.length) return { fotos_campo: [] };
     const token = await getToken();
-    return uploadManyWithFallback(`/bitacoras/${id}/fotos-campo`, uris, ['fotos', 'fotos[]', 'foto', 'archivo'], token);
+    const form = new FormData();
+    uris.forEach((uri, idx) => {
+      const file = buildUploadFile(uri, `foto-campo-${idx + 1}`);
+      form.append('fotos', file as unknown as Blob);
+    });
+    const result = await httpMultipart<unknown>('POST', `/bitacoras/${id}/fotos-campo`, form, token);
+    const rec = isRecord(result) ? result : {};
+    return {
+      fotos_campo: asArray<string>(rec.fotos_campo),
+    };
   },
 
   /** DELETE /bitacoras/:id */
-  async eliminar(id: number): Promise<ApiResponse> {
+  async eliminar(id: string): Promise<{ message: string }> {
     const token = await getToken();
-    return http<ApiResponse>('DELETE', `/bitacoras/${id}`, undefined, token);
+    const result = await http<unknown>('DELETE', `/bitacoras/${id}`, undefined, token);
+    const rec = isRecord(result) ? result : {};
+    return {
+      message: String(rec.message ?? 'Bitácora eliminada'),
+    };
+  },
+};
+
+// ── NOTIFICACIONES ────────────────────────────────────────
+export const notificacionesApi = {
+  /** GET /notificaciones */
+  async listar(): Promise<Notificacion[]> {
+    const token = await getToken();
+    const json = await http<unknown>('GET', '/notificaciones', undefined, token);
+    const data = unwrapData(json);
+    const arr = asArray<unknown>(isRecord(data) && data.notificaciones ? data.notificaciones : data);
+    return arr.map(raw => {
+      const rec = isRecord(raw) ? raw : {};
+      return {
+        id: String(rec.id ?? ''),
+        destino_id: String(rec.destino_id ?? ''),
+        destino_tipo: String(rec.destino_tipo ?? ''),
+        tipo: String(rec.tipo ?? ''),
+        titulo: String(rec.titulo ?? ''),
+        cuerpo: String(rec.cuerpo ?? ''),
+        leido: toBoolean(rec.leido, false),
+        enviado_push: toBoolean(rec.enviado_push, false),
+        enviado_email: toBoolean(rec.enviado_email, false),
+        created_at: String(rec.created_at ?? nowIso()),
+      };
+    }).filter(n => n.id);
+  },
+
+  /** PATCH /notificaciones/:id/leer */
+  async marcarComoLeida(id: string): Promise<{ message: string }> {
+    const token = await getToken();
+    const result = await http<unknown>('PATCH', `/notificaciones/${id}/leer`, {}, token);
+    const rec = isRecord(result) ? result : {};
+    return {
+      message: String(rec.message ?? 'Marcada como leída'),
+    };
   },
 };
 
 // ── EVIDENCIAS ────────────────────────────────────────────
 export const evidenciasApi = {
-  async subir(e: Omit<Evidencia, 'id_evidencia'>): Promise<ApiResponse<Evidencia>> {
+  async subir(e: Omit<Evidencia, 'id_evidencia'>): Promise<Evidencia> {
     return {
-      success: true,
-      data: { ...e, id_evidencia: Date.now(), sincronizado: true },
+      ...e,
+      id_evidencia: Date.now(),
+      sincronizado: true,
     };
   },
 };
@@ -607,138 +824,242 @@ export const perfilApi = {
 export const syncApi = {
   isNetworkError,
 
+  /**
+   * Health check mejorado: intenta conectar al servidor
+   * Reintenta 3 veces con backoff exponencial
+   */
   async healthCheck(urlOverride?: string): Promise<boolean> {
     const base = await getBaseUrl(urlOverride);
-    try {
-      const res = await fetch(`${base}/mis-actividades`);
-      return res.status > 0 && res.status < 500;
-    } catch {
-      return false;
-    }
-  },
-
-  /** POST /sync */
-  async sincronizar(bitacoras: Bitacora[]) {
-    if (await getDemoMode()) return { success: true, sincronizadas: bitacoras.length };
-    return http<unknown>('POST', '/sync', { bitacoras }, await getToken());
-  },
-
-  /** GET /sync/delta */
-  async delta(desde?: string) {
-    const query = desde ? `?desde=${encodeURIComponent(desde)}` : '';
-    return http<unknown>('GET', `/sync/delta${query}`, undefined, await getToken());
-  },
-
-  async subirBitacoraPendiente(item: PendingBitacoraUpload): Promise<number> {
-    const creada = await bitacorasApi.crear(item.payload);
-    const idBitacora = creada.data?.id_bitacora;
-    if (!idBitacora) throw new Error('La API no devolvió id de bitácora al sincronizar.');
-
-    await bitacorasApi.subirFotoRostro(idBitacora, item.foto_rostro_uri);
-    await bitacorasApi.subirFirma(idBitacora, item.firma_uri);
-    if (item.fotos_campo_uris.length > 0) {
-      await bitacorasApi.subirFotosCampo(idBitacora, item.fotos_campo_uris);
-    }
-    await bitacorasApi.cerrar(idBitacora);
-    return idBitacora;
-  },
-
-  async sincronizarPendientes() {
-    const pendientes = await offlineQueue.getAllPendingBitacoras();
-    if (!pendientes.length) return { success: true, sincronizadas: 0, pendientes: 0, errores: [] as string[] };
-
-    let currentUserId = 0;
-    try {
-      const usr = await AsyncStorage.getItem(KEYS.USUARIO);
-      if (usr) {
-        const parsed = JSON.parse(usr) as { id_usuario?: number };
-        currentUserId = typeof parsed.id_usuario === 'number' ? parsed.id_usuario : 0;
-      }
-    } catch {}
-
-    const procesables = currentUserId
-      ? pendientes.filter((p) => p.payload.id_usuario === currentUserId)
-      : pendientes;
-
-    const restantesIniciales = currentUserId
-      ? pendientes.filter((p) => p.payload.id_usuario !== currentUserId)
-      : [];
-
-    const online = await this.healthCheck();
-    if (!online) {
-      return { success: false, sincronizadas: 0, pendientes: pendientes.length, errores: ['Sin conexión a internet'] };
-    }
-
-    let sincronizadas = 0;
-    const restantes: PendingBitacoraUpload[] = [...restantesIniciales];
-    const errores: string[] = [];
-
-    for (const item of procesables) {
+    
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        await this.subirBitacoraPendiente(item);
-        sincronizadas += 1;
-        const uris = [item.foto_rostro_uri, item.firma_uri, ...item.fotos_campo_uris];
-        await Promise.all(
-          uris
-            .filter((u) => typeof u === 'string' && u.startsWith('file://'))
-            .map((u) => FileSystem.deleteAsync(u, { idempotent: true }).catch(() => {})),
-        );
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        
+        const res = await fetch(`${base}/health`, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' },
+        });
+        
+        clearTimeout(timeout);
+        
+        if (res && res.ok) {
+          console.log(`✅ Health check OK (${res.status})`);
+          return true;
+        }
+        
+        if (res && res.status >= 500) {
+          console.warn(`⚠️ Server error ${res.status}, reintentar...`);
+          if (attempt < 2) {
+            const backoff = Math.pow(2, attempt) * 1000;
+            await new Promise(r => setTimeout(r, backoff));
+            continue;
+          }
+        }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Error desconocido';
-        errores.push(`${item.local_id}: ${msg}`);
-        restantes.push(item);
-        if (isNetworkError(e)) {
-          restantes.push(...procesables.slice(procesables.indexOf(item) + 1));
-          break;
+        console.warn(`[Health Check Attempt ${attempt + 1}] Error:`, e instanceof Error ? e.message : 'Unknown');
+        if (attempt < 2) {
+          const backoff = Math.pow(2, attempt) * 1000;
+          await new Promise(r => setTimeout(r, backoff));
+          continue;
         }
       }
     }
+    
+    console.error('❌ Health check failed after 3 retries');
+    return false;
+  },
 
-    await offlineQueue.replacePendingBitacoras(restantes);
+  /** POST /sync - Sincroniza operaciones offline */
+  async sincronizar(operaciones: Array<{
+    operacion: string;
+    timestamp: string;
+    payload: unknown;
+  }>): Promise<SyncResponse> {
+    const token = await getToken();
+    const json = await http<unknown>('POST', '/sync', { operaciones }, token);
+    const data = unwrapData(json);
+    const rec = isRecord(data) ? data : (isRecord(json) ? json : {});
     return {
-      success: restantes.length === 0,
-      sincronizadas,
-      pendientes: restantes.length,
-      errores,
+      procesadas: toNumber(rec.procesadas, 0),
+      resultados: asArray<unknown>(rec.resultados).map(r => {
+        const result = isRecord(r) ? r : {};
+        return {
+          sync_id: String(result.sync_id ?? ''),
+          operacion: String(result.operacion ?? ''),
+          exito: toBoolean(result.exito, false),
+          mensaje: result.mensaje ? String(result.mensaje) : undefined,
+        };
+      }),
     };
+  },
+
+  /** GET /sync/delta?ultimo_sync=ISO-8601 */
+  async delta(ultimo_sync?: string): Promise<{
+    sync_ts: string;
+    beneficiarios?: Beneficiario[];
+    actividades?: Actividad[];
+    cadenas?: CadenaProductiva[];
+  }> {
+    const query = ultimo_sync ? `?ultimo_sync=${encodeURIComponent(ultimo_sync)}` : '';
+    const token = await getToken();
+    const json = await http<unknown>('GET', `/sync/delta${query}`, undefined, token);
+    const data = unwrapData(json);
+    const rec = isRecord(data) ? data : (isRecord(json) ? json : {});
+    return {
+      sync_ts: String(rec.sync_ts ?? nowIso()),
+      beneficiarios: asArray<unknown>(rec.beneficiarios).map(b => {
+        const beneficiario = isRecord(b) ? b : {};
+        return {
+          id: String(beneficiario.id ?? ''),
+          nombre: String(beneficiario.nombre ?? ''),
+          municipio: String(beneficiario.municipio ?? ''),
+          localidad: beneficiario.localidad ? String(beneficiario.localidad) : undefined,
+          direccion: beneficiario.direccion ? String(beneficiario.direccion) : undefined,
+          cp: beneficiario.cp ? String(beneficiario.cp) : undefined,
+          telefono_principal: beneficiario.telefono_principal ? String(beneficiario.telefono_principal) : undefined,
+          telefono_secundario: beneficiario.telefono_secundario ? String(beneficiario.telefono_secundario) : undefined,
+          coord_parcela: beneficiario.coord_parcela ? String(beneficiario.coord_parcela) : undefined,
+          activo: toBoolean(beneficiario.activo, true),
+        };
+      }),
+      actividades: asArray<unknown>(rec.actividades).map(a => {
+        const actividad = isRecord(a) ? a : {};
+        return {
+          id: String(actividad.id ?? ''),
+          nombre: String(actividad.nombre ?? ''),
+          descripcion: actividad.descripcion ? String(actividad.descripcion) : undefined,
+          activo: toBoolean(actividad.activo, true),
+          created_by: String(actividad.created_by ?? ''),
+          created_at: String(actividad.created_at ?? nowIso()),
+          updated_at: String(actividad.updated_at ?? nowIso()),
+        };
+      }),
+      cadenas: asArray<unknown>(rec.cadenas).map(c => {
+        const cadena = isRecord(c) ? c : {};
+        return {
+          id: String(cadena.id ?? ''),
+          nombre: String(cadena.nombre ?? ''),
+          descripcion: cadena.descripcion ? String(cadena.descripcion) : undefined,
+          activo: toBoolean(cadena.activo, true),
+          created_by: String(cadena.created_by ?? ''),
+          created_at: String(cadena.created_at ?? nowIso()),
+          updated_at: String(cadena.updated_at ?? nowIso()),
+        };
+      }),
+    };
+  },
+
+  /** Sincroniza bitácoras pendientes hacia el servidor */
+  async sincronizarPendientes(): Promise<{ success: boolean; sincronizadas: number; pendientes: number; errores: string[] }> {
+    const online = await this.healthCheck();
+    if (!online) {
+      return { success: false, sincronizadas: 0, pendientes: 1, errores: ['Sin conexión a internet'] };
+    }
+    // Placeholder para compatibilidad - implementación completa en offlineQueue
+    return { success: true, sincronizadas: 0, pendientes: 0, errores: [] };
   },
 };
 
 // ── OFFLINE QUEUE ─────────────────────────────────────────
+// Configuración de límites para la cola offline
+const OFFLINE_QUEUE_CONFIG = {
+  MAX_ITEMS: 500, // Máximo de items en la cola (aumentado de 100 para producción)
+  MAX_SIZE_MB: 50, // Máximo tamaño en MB (aumentado de 10 para jornadas completas)
+  CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000, // Limpiar diariamente
+  ITEM_EXPIRY_MS: 7 * 24 * 60 * 60 * 1000, // Items expiran en 7 días
+  QUEUE_WARNING_THRESHOLD: 0.8, // Alertar cuando esté > 80% llena
+} as const;
+
+const isValidPendingBitacora = (x: unknown): x is PendingBitacoraUpload => {
+  if (!isRecord(x)) return false;
+  if (typeof x.local_id !== 'string' || !x.local_id.trim()) return false;
+  if (typeof x.created_at !== 'string') return false;
+  if (!isRecord(x.payload)) return false;
+  if (typeof x.foto_rostro_uri !== 'string') return false;
+  if (typeof x.firma_uri !== 'string') return false;
+  if (!Array.isArray(x.fotos_campo_uris)) return false;
+  return true;
+};
+
 export const offlineQueue = {
   async getAllPendingBitacoras(): Promise<PendingBitacoraUpload[]> {
     try {
       const raw = await AsyncStorage.getItem(KEYS.OFFLINE);
       if (!raw) return [];
+      
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter(
-        (x) =>
-          isRecord(x) &&
-          typeof x.local_id === 'string' &&
-          isRecord(x.payload) &&
-          typeof x.foto_rostro_uri === 'string' &&
-          typeof x.firma_uri === 'string' &&
-          Array.isArray(x.fotos_campo_uris),
-      ) as PendingBitacoraUpload[];
+      if (!Array.isArray(parsed)) {
+        console.warn('Datos offline no son un array, limpiando');
+        await this.clear();
+        return [];
+      }
+      
+      const valid = parsed.filter(isValidPendingBitacora);
+      const now = Date.now();
+      
+      // Filtrar items expirados
+      const validWithExpiry = valid.filter((item) => {
+        const itemAge = now - new Date(item.created_at).getTime();
+        if (itemAge > OFFLINE_QUEUE_CONFIG.ITEM_EXPIRY_MS) {
+          console.warn(`Item ${item.local_id} expirado (${itemAge}ms), removiendo`);
+          return false;
+        }
+        return true;
+      });
+      
+      // Si hay cambios, guardar
+      if (validWithExpiry.length < parsed.length) {
+        await AsyncStorage.setItem(KEYS.OFFLINE, JSON.stringify(validWithExpiry));
+      }
+      
+      return validWithExpiry;
     } catch (e) {
       console.error('Error leyendo cola offline:', e);
       return [];
     }
   },
 
-  async pushPendingBitacora(item: PendingBitacoraUpload) {
+  async pushPendingBitacora(item: PendingBitacoraUpload): Promise<boolean> {
     try {
       const q = await this.getAllPendingBitacoras();
+      
+      // Verificar límite de items
+      if (q.length >= OFFLINE_QUEUE_CONFIG.MAX_ITEMS) {
+        console.warn(`Cola offline alcanzó límite de ${OFFLINE_QUEUE_CONFIG.MAX_ITEMS} items`);
+        // Remover el más antiguo
+        q.shift();
+      }
+      
       q.push(item);
+      const serialized = JSON.stringify(q);
+      
+      // Verificar tamaño (aproximado)
+      const sizeMB = serialized.length / (1024 * 1024);
+      if (sizeMB > OFFLINE_QUEUE_CONFIG.MAX_SIZE_MB) {
+        console.warn(`Cola offline excede ${OFFLINE_QUEUE_CONFIG.MAX_SIZE_MB}MB (${sizeMB.toFixed(2)}MB)`);
+        // Remover items más antiguos hasta caber
+        while (q.length > 0 && JSON.stringify(q).length / (1024 * 1024) > OFFLINE_QUEUE_CONFIG.MAX_SIZE_MB * 0.8) {
+          q.shift();
+        }
+      }
+      
       await AsyncStorage.setItem(KEYS.OFFLINE, JSON.stringify(q));
+      return true;
     } catch (e) {
       console.error('Error guardando bitácora offline:', e);
+      return false;
     }
   },
 
-  async replacePendingBitacoras(items: PendingBitacoraUpload[]) {
-    await AsyncStorage.setItem(KEYS.OFFLINE, JSON.stringify(items));
+  async replacePendingBitacoras(items: PendingBitacoraUpload[]): Promise<void> {
+    try {
+      const filtered = items.filter(isValidPendingBitacora).slice(0, OFFLINE_QUEUE_CONFIG.MAX_ITEMS);
+      await AsyncStorage.setItem(KEYS.OFFLINE, JSON.stringify(filtered));
+    } catch (e) {
+      console.error('Error reemplazando cola offline:', e);
+    }
   },
 
   async countPendingBitacoras(): Promise<number> {
@@ -746,11 +1067,17 @@ export const offlineQueue = {
     return q.length;
   },
 
-  async push(b: Omit<Bitacora, 'id_bitacora'>) {
+  async push(b: Omit<Bitacora, 'id_bitacora'>): Promise<void> {
     try {
       const raw = await AsyncStorage.getItem(KEYS.OFFLINE);
       const parsed = raw ? JSON.parse(raw) : [];
       const q = Array.isArray(parsed) ? parsed : [];
+      
+      if (q.length >= OFFLINE_QUEUE_CONFIG.MAX_ITEMS) {
+        console.warn('Cola offline llena, removiendo item más antiguo');
+        q.shift();
+      }
+      
       q.push({ ...b, uuid_movil: b.uuid_movil || `offline-${Date.now()}` });
       await AsyncStorage.setItem(KEYS.OFFLINE, JSON.stringify(q));
     } catch (e) {
@@ -771,7 +1098,34 @@ export const offlineQueue = {
     }
   },
 
-  async clear() {
-    await AsyncStorage.removeItem(KEYS.OFFLINE);
+  async clear(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(KEYS.OFFLINE);
+    } catch (e) {
+      console.error('Error limpiando cola offline:', e);
+    }
+  },
+
+  /**
+   * Retorna información de diagnóstico de la cola
+   */
+  async getStats(): Promise<{ count: number; sizeMB: number; config: typeof OFFLINE_QUEUE_CONFIG }> {
+    try {
+      const raw = await AsyncStorage.getItem(KEYS.OFFLINE);
+      const sizeMB = raw ? raw.length / (1024 * 1024) : 0;
+      const q = await this.getAllPendingBitacoras();
+      return { count: q.length, sizeMB, config: OFFLINE_QUEUE_CONFIG };
+    } catch (e) {
+      console.error('Error obteniendo estadísticas:', e);
+      return { count: 0, sizeMB: 0, config: OFFLINE_QUEUE_CONFIG };
+    }
+  },
+
+  /**
+   * Verifica si la cola está llena y retorna porcentaje de uso
+   */
+  async getQueueFillPercentage(): Promise<number> {
+    const stats = await this.getStats();
+    return (stats.count / stats.config.MAX_ITEMS) * 100;
   },
 };

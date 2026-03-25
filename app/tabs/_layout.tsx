@@ -1,7 +1,5 @@
 import { Colors } from '@/constants/Colors';
-import { getConnectionInfo } from '@/lib/api';
 import { Tabs } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 
 function Icon({ emoji, focused }: { emoji: string; focused: boolean }) {
@@ -13,14 +11,6 @@ function Icon({ emoji, focused }: { emoji: string; focused: boolean }) {
 }
 
 export default function TabsLayout() {
-  const [isDemoMode, setIsDemoMode] = useState(false);
-
-  useEffect(() => {
-    getConnectionInfo()
-      .then((cfg) => setIsDemoMode(cfg.modoDemo))
-      .catch(() => {});
-  }, []);
-
   return (
     <Tabs
       screenOptions={{
@@ -51,7 +41,8 @@ export default function TabsLayout() {
         name="alta-beneficiario"
         options={{
           title: 'Beneficiario',
-          href: isDemoMode ? '/tabs/alta-beneficiario' : null,
+          // Siempre mostrar la pestaña, el componente maneja la lógica de visibilidad
+          href: '/tabs/alta-beneficiario',
           tabBarIcon: ({ focused }) => <Icon emoji="👤" focused={focused} />,
         }}
       />

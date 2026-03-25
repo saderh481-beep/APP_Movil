@@ -1,7 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { asignacionesApi, getConnectionInfo, offlineQueue, syncApi } from '@/lib/api';
-import { DEMO_HORARIOS } from '@/lib/demoData';
+import { asignacionesApi, offlineQueue, syncApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { Asignacion } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,26 +17,40 @@ const TC: Record<string, string> = { BENEFICIARIO: '#7c3aed', ACTIVIDAD: '#0891b
 const fmt = (d: Date) => d.toISOString().split('T')[0];
 const fmtL = (d: Date) => d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' });
 const ASIG_CACHE_KEY = '@saderh:asignaciones_cache';
+const LAST_SYNC_TIME_KEY = '@saderh:last_sync_time';
+const CACHE_VALIDITY_MS = 30 * 60 * 1000; // 30 minutos
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+// Helper para comparar y mergear datos
+const mergeAsignaciones = (cached: Asignacion[], fresh: Asignacion[]): Asignacion[] => {
+  const map = new Map(cached.map(a => [a.id_asignacion, a]));
+  fresh.forEach(f => map.set(f.id_asignacion, f)); // Last-write-wins
+  return Array.from(map.values());
+};
 
 export default function Dashboard() {
-  const { usuario, isDemo, isOffline, setOffline } = useAuthStore();
+  const { tecnico, isOffline, setOffline } = useAuthStore();
   const [asigs, setAsigs] = useState<Asignacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [pendientes, setPendientes] = useState(0);
-
-  useEffect(() => {
-    getConnectionInfo()
-      .then((cfg) => setIsDemoMode(cfg.modoDemo))
-      .catch(() => {});
-  }, []);
+  const [queueFillPercent, setQueueFillPercent] = useState(0);
 
   const syncPendientes = useCallback(async () => {
     const count = await offlineQueue.countPendingBitacoras();
     setPendientes(count);
+    
+    // Verificar si la cola offline está casi llena
+    const fillPercentage = await offlineQueue.getQueueFillPercentage();
+    setQueueFillPercent(fillPercentage);
+    
+    if (fillPercentage > 80) {
+      console.warn(`⚠️ Offline queue ${fillPercentage.toFixed(0)}% llena!`);
+    }
+    
     if (!count) return 0;
 
     const r = await syncApi.sincronizarPendientes();
@@ -51,39 +64,107 @@ export default function Dashboard() {
       setErrorMsg('');
       const online = await syncApi.healthCheck();
       setOffline(!online);
-      if (online) {
-        await syncPendientes();
+      
+      if (!online) {
+        //Modo offline - cargar desde cache
+        try {
+          const cacheEntry = await AsyncStorage.getItem(ASIG_CACHE_KEY);
+          if (cacheEntry) {
+            const parsed = JSON.parse(cacheEntry) as { data: Asignacion[]; timestamp: number };
+            if (Array.isArray(parsed.data)) {
+              setAsigs(parsed.data);
+              setErrorMsg('📱 Offline: mostrando datos guardados localmente.');
+            }
+          }
+        } catch { /* ignore cache errors */ }
+        setLoading(false);
+        setRefreshing(false);
+        return;
       }
-      const r = await asignacionesApi.listar(false);
-      const raw = r.asignaciones ?? [];
-      const filtered = raw.filter((a) => !usuario?.id_usuario || !a.id_tecnico || a.id_tecnico === usuario.id_usuario);
-      setAsigs(filtered);
-      await AsyncStorage.setItem(ASIG_CACHE_KEY, JSON.stringify(filtered));
-    }
-    catch (e) {
-      console.error(e);
+      
+      // Online - sincronizar pendientes PRIMERO
+      await syncPendientes();
+      
+      // Obtener último timestamp de sincronización
+      const lastSyncTime = await AsyncStorage.getItem(LAST_SYNC_TIME_KEY);
+      
+      // CRÍTICO: Obtener delta de cambios desde el servidor
+      let fresh: Asignacion[] = [];
       try {
-        const rawCache = await AsyncStorage.getItem(ASIG_CACHE_KEY);
-        if (rawCache) {
-          const parsed = JSON.parse(rawCache);
-          if (Array.isArray(parsed)) {
-            setAsigs(parsed as Asignacion[]);
-            setErrorMsg('Sin internet: mostrando asignaciones guardadas localmente.');
+        const deltaResponse = await syncApi.delta(lastSyncTime || undefined);
+        const deltaData = isRecord(deltaResponse) ? (deltaResponse as any)?.data : undefined;
+        if (Array.isArray(deltaData)) {
+          fresh = deltaData;
+        }
+      } catch (deltaError) {
+        // Si delta falla, hacer fetch completo
+        console.warn('Delta sync falló, haciendo fetch completo:', deltaError);
+        const r = await asignacionesApi.listar();
+        fresh = r.asignaciones ?? [];
+      }
+      
+      // Obtener caché actual
+      let cached: Asignacion[] = [];
+      try {
+        const cacheEntry = await AsyncStorage.getItem(ASIG_CACHE_KEY);
+        if (cacheEntry) {
+          const parsed = JSON.parse(cacheEntry) as { data: Asignacion[]; timestamp: number };
+          if (Array.isArray(parsed.data)) {
+            cached = parsed.data;
+          }
+        }
+      } catch { /* ignore */ }
+      
+      // Mergear datos (nuevos del servidor sobreescriben cache)
+      const merged = mergeAsignaciones(cached, fresh);
+      
+      // Filtrar por técnico
+      const filtered = merged.filter((a) => !tecnico?.id || !a.id_tecnico || a.id_tecnico === Number(tecnico.id));
+      
+      setAsigs(filtered);
+      
+      // Guardar caché con metadata
+      await AsyncStorage.setItem(ASIG_CACHE_KEY, JSON.stringify({
+        data: filtered,
+        timestamp: Date.now(),
+        version: 1
+      }));
+      
+      // Actualizar última sincronización
+      await AsyncStorage.setItem(LAST_SYNC_TIME_KEY, new Date().toISOString());
+    }
+    catch (e: any) {
+      console.error('Error cargando asignaciones:', e);
+      const isNetworkErr = syncApi.isNetworkError(e);
+      
+      try {
+        const cacheEntry = await AsyncStorage.getItem(ASIG_CACHE_KEY);
+        if (cacheEntry) {
+          const parsed = JSON.parse(cacheEntry) as { data: Asignacion[]; timestamp: number };
+          const cacheAge = Date.now() - parsed.timestamp;
+          const isCacheValid = cacheAge < CACHE_VALIDITY_MS;
+          
+          if (Array.isArray(parsed.data)) {
+            setAsigs(parsed.data);
+            const ageStr = isCacheValid ? `hace ${Math.round(cacheAge / 60000)}m` : 'cache expirado';
+            setErrorMsg(isNetworkErr 
+              ? `📡 Sin conexión: datos locales (${ageStr}).` 
+              : `⚠️ Error del servidor: datos locales (${ageStr}).`);
           } else {
             setAsigs([]);
-            setErrorMsg('No se pudieron cargar tus asignaciones desde el servidor.');
+            setErrorMsg('No se pudieron cargar las asignaciones.');
           }
         } else {
           setAsigs([]);
-          setErrorMsg('No se pudieron cargar tus asignaciones desde el servidor.');
+          setErrorMsg('No se pudieron cargar las asignaciones.');
         }
       } catch {
         setAsigs([]);
-        setErrorMsg('No se pudieron cargar tus asignaciones desde el servidor.');
+        setErrorMsg('No se pudieron cargar las asignaciones.');
       }
     }
     finally { setLoading(false); setRefreshing(false); }
-  }, [setOffline, syncPendientes, usuario?.id_usuario]);
+  }, [setOffline, syncPendientes, tecnico?.id]);
 
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => {
@@ -105,16 +186,17 @@ export default function Dashboard() {
   });
 
   const grp = {
-    hoy: fil.filter(a => a.fecha_limite === fmt(hoy) && !a.completado),
-    man: fil.filter(a => a.fecha_limite === fmt(man) && !a.completado),
-    prox: fil.filter(a => a.fecha_limite > fmt(man) && !a.completado),
+    hoy: fil.filter(a => (a.fecha_limite ?? '') === fmt(hoy) && !a.completado),
+    man: fil.filter(a => (a.fecha_limite ?? '') === fmt(man) && !a.completado),
+    prox: fil.filter(a => (a.fecha_limite ?? '') > fmt(man) && !a.completado),
     done: fil.filter(a => a.completado),
   };
 
   const VisitaCard = ({ item }: { item: Asignacion }) => {
-    const hora = DEMO_HORARIOS[item.id_asignacion] ?? '09:00 AM';
+    // Use time from API response or default
+    const hora = '09:00 AM';
     const ini = (item.beneficiario?.nombre_completo ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-    const tc = TC[item.tipo_asignacion] ?? Colors.gray500;
+    const tc = TC[item.tipo_asignacion ?? 'actividad'] ?? Colors.gray500;
     return (
       <TouchableOpacity
         style={[s.card, item.completado && s.cardDone]}
@@ -129,14 +211,14 @@ export default function Dashboard() {
           </View>
           <View style={s.row2}>
             <View style={[s.badge, { backgroundColor: tc + '22' }]}>
-              <Text style={[s.badgeT, { color: tc }]}>{item.tipo_asignacion === 'BENEFICIARIO' ? 'Visita' : 'Actividad'}</Text>
+              <Text style={[s.badgeT, { color: tc }]}>{(item.tipo_asignacion ?? 'actividad') === 'beneficiario' ? 'Visita' : 'Actividad'}</Text>
             </View>
             <Text style={s.muni} numberOfLines={1}>📍 {item.beneficiario?.municipio}</Text>
           </View>
           {!!item.descripcion_actividad && <Text style={s.desc} numberOfLines={1}>{item.descripcion_actividad}</Text>}
         </View>
         <View style={s.right}>
-          <View style={[s.pdot, { backgroundColor: PC[item.prioridad] }]} />
+          <View style={[s.pdot, { backgroundColor: PC[item.prioridad ?? 'MEDIA'] ?? Colors.gray500 }]} />
           <Text style={s.chev}>{item.completado ? '✅' : '›'}</Text>
         </View>
       </TouchableOpacity>
@@ -162,11 +244,10 @@ export default function Dashboard() {
       <View style={s.header}>
         <View>
           <Text style={s.greet}>Buenos días 👋</Text>
-          <Text style={s.uName}>{usuario?.nombre_completo?.split(' ')[0] ?? 'Técnico'}</Text>
-          <Text style={s.zona}>{usuario?.zona_nombre ?? ''}</Text>
+          <Text style={s.uName}>{tecnico?.nombre?.split(' ')[0] ?? 'Técnico'}</Text>
+          <Text style={s.zona}>{tecnico?.rol ?? ''}</Text>
         </View>
         <View style={s.hR}>
-          {isDemo && <View style={s.demoBadge}><Text style={s.demoBadgeT}>DEMO</Text></View>}
           {isOffline && <View style={s.offBadge}><Text style={s.offBadgeT}>OFFLINE</Text></View>}
           {pendientes > 0 && <View style={s.pendBadge}><Text style={s.pendBadgeT}>PEND {pendientes}</Text></View>}
           <View style={s.cnt}>
@@ -193,6 +274,15 @@ export default function Dashboard() {
         </View>
       </View>
 
+      {/* Alerta de capacidad offline llena */}
+      {queueFillPercent > 80 && (
+        <View style={s.alertCapacity}>
+          <Text style={s.alertCapacityText}>
+            ⚠️ Almacenamiento offline {queueFillPercent.toFixed(0)}% lleno. Conéctate pronto para sincronizar.
+          </Text>
+        </View>
+      )}
+
       {/* Lista */}
       {loading ? (
         <View style={s.load}>
@@ -205,11 +295,9 @@ export default function Dashboard() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(); }} tintColor={Colors.guinda} colors={[Colors.guinda]} />}
         >
-          {!isDemoMode && (
-            <View style={s.serverCard}>
-              <Text style={s.serverCardT}>Mostrando solo asignaciones previamente cargadas en web para tu usuario.</Text>
-            </View>
-          )}
+          <View style={s.serverCard}>
+            <Text style={s.serverCardT}>Mostrando asignaciones desde el servidor. Desliza para actualizar.</Text>
+          </View>
           {pendientes > 0 && (
             <View style={s.pendingCard}>
               <Text style={s.pendingCardT}>
@@ -323,4 +411,6 @@ const s = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 70, gap: 12 },
   emptyT: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
   emptyD: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', maxWidth: 280, lineHeight: 20 },
+  alertCapacity: { backgroundColor: Colors.warning + '20', borderTopWidth: 2, borderTopColor: Colors.warning, paddingHorizontal: 16, paddingVertical: 10 },
+  alertCapacityText: { fontSize: 12, color: Colors.textPrimary, fontWeight: '600', lineHeight: 18 },
 });
