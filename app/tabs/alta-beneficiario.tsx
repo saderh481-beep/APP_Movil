@@ -1,12 +1,19 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
 import { beneficiariosApi } from '@/lib/api';
-import { MUNICIPIOS_HIDALGO, TIPOS_CULTIVO } from '@/lib/demoData';
+import { MUNICIPIOS_HIDALGO } from '@/lib/demoData';
 import { useAuthStore } from '@/store/authStore';
 import { CrearBeneficiarioPayload } from '@/types/models';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// Función para generar folio automático
+const generarFolio = (): string => {
+  const anio = new Date().getFullYear();
+  const random = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
+  return `HGO-${anio}-${random}`;
+};
 
 const INI: CrearBeneficiarioPayload = { nombre_completo: '', curp: '', municipio: '', localidad: '', folio_saderh: '', cadena_productiva: '', telefono_contacto: '' };
 
@@ -15,9 +22,15 @@ export default function AltaBeneficiario() {
   const [form, setForm] = useState(INI);
   const [loading, setLoading] = useState(false);
   const [showMunis, setShowMunis] = useState(false);
-  const [showCultivos, setShowCultivos] = useState(false);
   const [searchMuni, setSearchMuni] = useState('');
   const set = <K extends keyof CrearBeneficiarioPayload>(k: K, v: CrearBeneficiarioPayload[K]) => setForm((p: CrearBeneficiarioPayload) => ({ ...p, [k]: v }));
+
+  // Generar folio automáticamente al iniciar
+  useEffect(() => {
+    if (!form.folio_saderh) {
+      set('folio_saderh', generarFolio());
+    }
+  }, []);
 
   // El backend actual no provee permisos específicos, se permite por defecto
   if (!tecnico) {
@@ -42,7 +55,7 @@ export default function AltaBeneficiario() {
     if (!form.municipio) return 'Selecciona un municipio';
     if (!form.localidad.trim()) return 'La localidad es requerida';
     if (!form.folio_saderh.trim()) return 'El folio SADERH es requerido';
-    if (!form.cadena_productiva) return 'Selecciona una cadena productiva';
+    if (!form.cadena_productiva.trim()) return 'La cadena productiva es requerida';
     return null;
   };
 
@@ -50,8 +63,7 @@ export default function AltaBeneficiario() {
     const err = validar(); if (err) { Alert.alert('Datos incompletos', err); return; }
     setLoading(true);
     try {
-      // TODO: Implementar cuando el backend soporte POST /beneficiarios
-      // await beneficiariosApi.crear(form);
+      await beneficiariosApi.crear(form);
       Alert.alert('✅ Registrado', `${form.nombre_completo} fue registrado exitosamente.`, [{ text: 'OK', onPress: () => { setForm(INI); setSearchMuni(''); } }]);
     } catch (e: any) { Alert.alert('Error', e.message ?? 'No se pudo registrar'); }
     finally { setLoading(false); }
@@ -80,7 +92,7 @@ export default function AltaBeneficiario() {
 
           <View style={s.sec}><Text style={s.secT}>📍 Ubicación</Text>
             <Text style={s.lbl}>Municipio *</Text>
-            <TouchableOpacity style={s.sel} onPress={() => { setShowMunis(!showMunis); setShowCultivos(false); }}>
+            <TouchableOpacity style={s.sel} onPress={() => { setShowMunis(!showMunis); }}>
               <Text style={[s.selT, !form.municipio && s.ph]}>{form.municipio || 'Seleccionar municipio...'}</Text>
               <Text style={s.arr}>{showMunis ? '▲' : '▼'}</Text>
             </TouchableOpacity>
@@ -104,19 +116,7 @@ export default function AltaBeneficiario() {
             <Text style={s.lbl}>Folio SADERH *</Text>
             <TextInput style={s.inp} value={form.folio_saderh} onChangeText={v => set('folio_saderh', v.toUpperCase())} placeholder="HGO-2024-000000" placeholderTextColor={Colors.gray400} autoCapitalize="characters" />
             <Text style={s.lbl}>Cadena Productiva *</Text>
-            <TouchableOpacity style={s.sel} onPress={() => { setShowCultivos(!showCultivos); setShowMunis(false); }}>
-              <Text style={[s.selT, !form.cadena_productiva && s.ph]}>{form.cadena_productiva || 'Seleccionar cultivo...'}</Text>
-              <Text style={s.arr}>{showCultivos ? '▲' : '▼'}</Text>
-            </TouchableOpacity>
-            {showCultivos && (
-              <ScrollView style={[s.drop, { maxHeight: 220 }]} nestedScrollEnabled>
-                {TIPOS_CULTIVO.map(c => (
-                  <TouchableOpacity key={c} style={[s.dropI, form.cadena_productiva === c && s.dropIA]} onPress={() => { set('cadena_productiva', c); setShowCultivos(false); }}>
-                    <Text style={[s.dropIT, form.cadena_productiva === c && s.dropITA]}>{c}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
+            <TextInput style={s.inp} value={form.cadena_productiva} onChangeText={v => set('cadena_productiva', v)} placeholder="Ej: Maíz, Frjol, Chilcue, etc." placeholderTextColor={Colors.gray400} />
           </View>
 
           <TouchableOpacity style={[s.btn, loading && s.btnD]} onPress={guardar} disabled={loading}>

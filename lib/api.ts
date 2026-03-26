@@ -15,6 +15,7 @@ import {
   Notificacion,
   HealthResponse,
   SyncResponse,
+  CrearBeneficiarioPayload,
 } from '../types/models';
 
 const DEFAULT_APP_API_URL = 'https://campo-api-app-campo-saas.up.railway.app';
@@ -78,6 +79,7 @@ export const KEYS = {
   USUARIO: '@saderh:usuario',
   CONEXION: '@saderh:conexion',
   OFFLINE: '@saderh:offline_queue',
+  BENEFICIARIOS_OFFLINE: '@saderh:beneficiarios_offline',
 } as const;
 
 export interface PendingBitacoraUpload {
@@ -87,6 +89,16 @@ export interface PendingBitacoraUpload {
   foto_rostro_uri: string;
   firma_uri: string;
   fotos_campo_uris: string[];
+}
+
+/**
+ * Beneficiario pendiente de sincronización offline
+ */
+export interface PendingBeneficiarioUpload {
+  local_id: string;
+  created_at: string;
+  payload: CrearBeneficiarioPayload;
+  sync_status: 'pending' | 'syncing' | 'failed';
 }
 
 type ConnectionConfig = { appApiUrl?: string; modoDemo?: boolean };
@@ -100,12 +112,14 @@ const runtime = {
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const getToken = async () => {
   try {
+    console.log('[API] Intentando obtener token de AsyncStorage...');
     const token = await AsyncStorage.getItem(KEYS.TOKEN);
-    // Solo retornar token si es válido (no vacío y no null)
-    return token && token.trim().length > 0 ? token : null;
+    console.log('[API] Token encontrado:', token ? 'Sí, longitud: ' + token.length : 'No');
+    // Retornar undefined si no hay token (no null)
+    return token && token.trim().length > 0 ? token : undefined;
   } catch (error) {
     console.error('Error obteniendo token de AsyncStorage:', error);
-    return null;
+    return undefined;
   }
 };
 
@@ -545,6 +559,67 @@ export const beneficiariosApi = {
 
     return list;
   },
+
+  /** POST /beneficiarios - Crear beneficiario con guardado offline */
+  async crear(payload: CrearBeneficiarioPayload): Promise<Beneficiario> {
+    const token = await getToken();
+    
+    if (!token) {
+      console.error('[API ERROR] No hay token disponible para /beneficiarios');
+      throw new Error('No autenticado: Token no disponible');
+    }
+    
+    try {
+      // Intentar crear en el servidor
+      const json = await http<unknown>('POST', '/beneficiarios', payload, token);
+      const data = unwrapData(json);
+      const rec = isRecord(data) ? data : {};
+      
+      console.log('[beneficiariosApi.crear] Beneficiario creado en servidor:', rec.id ?? 'sin id');
+      
+      return {
+        id: String(rec.id ?? rec.id_beneficiario ?? ''),
+        nombre: String(rec.nombre ?? payload.nombre_completo),
+        nombre_completo: payload.nombre_completo,
+        municipio: payload.municipio,
+        localidad: payload.localidad,
+        curp: payload.curp,
+        folio_saderh: payload.folio_saderh,
+        cadena_productiva: payload.cadena_productiva,
+        telefono_contacto: payload.telefono_contacto,
+        activo: true,
+      };
+    } catch (error) {
+      // Si hay error de red, guardar localmente para sincronizar después
+      console.warn('[beneficiariosApi.crear] Error de red, guardando offline:', error instanceof Error ? error.message : 'error desconocido');
+      
+      // Guardar en cola offline
+      const offlineBeneficiarios = await offlineQueue.getPendingBeneficiarios();
+      const nuevoBeneficiario = {
+        local_id: `local_${Date.now()}`,
+        created_at: new Date().toISOString(),
+        payload,
+        sync_status: 'pending' as const,
+      };
+      
+      await offlineQueue.addPendingBeneficiario(nuevoBeneficiario);
+      console.log('[beneficiariosApi.crear] Beneficiario guardado en cola offline');
+      
+      // Devolver beneficiario local con ID temporal
+      return {
+        id: nuevoBeneficiario.local_id,
+        nombre: payload.nombre_completo,
+        nombre_completo: payload.nombre_completo,
+        municipio: payload.municipio,
+        localidad: payload.localidad,
+        curp: payload.curp,
+        folio_saderh: payload.folio_saderh,
+        cadena_productiva: payload.cadena_productiva,
+        telefono_contacto: payload.telefono_contacto,
+        activo: true,
+      };
+    }
+  },
 };
 
 // ── CADENAS PRODUCTIVAS ───────────────────────────────────
@@ -566,15 +641,6 @@ export const cadenasApi = {
       return {
         id: String(rec.id ?? ''),
         nombre: String(rec.nombre ?? ''),
-        descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
-        activo: toBoolean(rec.activo, true),
-        created_by: String(rec.created_by ?? ''),
-        created_at: String(rec.created_at ?? nowIso()),
-        updated_at: String(rec.updated_at ?? nowIso()),
-      };
-    }).filter(c => c.id && c.nombre);
-  },
-};
         descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
         activo: toBoolean(rec.activo, true),
         created_by: String(rec.created_by ?? ''),
@@ -989,14 +1055,54 @@ export const syncApi = {
     };
   },
 
-  /** Sincroniza bitácoras pendientes hacia el servidor */
+  /** Sincroniza bitácoras y beneficiarios pendientes hacia el servidor */
   async sincronizarPendientes(): Promise<{ success: boolean; sincronizadas: number; pendientes: number; errores: string[] }> {
     const online = await this.healthCheck();
     if (!online) {
       return { success: false, sincronizadas: 0, pendientes: 1, errores: ['Sin conexión a internet'] };
     }
-    // Placeholder para compatibilidad - implementación completa en offlineQueue
-    return { success: true, sincronizadas: 0, pendientes: 0, errores: [] };
+    
+    const token = await getToken();
+    if (!token) {
+      return { success: false, sincronizadas: 0, pendientes: 1, errores: ['Sin token de autenticación'] };
+    }
+    
+    let sincronizadas = 0;
+    const errores: string[] = [];
+    let pendientes = 0;
+    
+    // Sincronizar bitácoras pendientes
+    try {
+      const bitacorasPendientes = await offlineQueue.getAllPendingBitacoras();
+      if (bitacorasPendientes.length > 0) {
+        console.log(`[syncApi] Sincronizando ${bitacorasPendientes.length} bitácoras...`);
+        for (const bitacora of bitacorasPendientes) {
+          try {
+            await http<unknown>('POST', '/bitacoras', bitacora.payload, token);
+            sincronizadas++;
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : 'error desconocido';
+            errores.push(`Bitácora ${bitacora.local_id}: ${msg}`);
+            pendientes++;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error sincronizando bitácoras:', e);
+    }
+    
+    // Sincronizar beneficiarios pendientes
+    try {
+      const benefResult = await offlineQueue.sincronizarBeneficiarios();
+      sincronizadas += benefResult.sincronizados;
+      errores.push(...benefResult.errores);
+      pendientes += benefResult.errores.length;
+    } catch (e) {
+      console.error('Error sincronizando beneficiarios:', e);
+    }
+    
+    console.log(`[syncApi] Sincronización completada: ${sincronizadas} sincronizadas, ${pendientes} pendientes`);
+    return { success: errores.length === 0, sincronizadas, pendientes, errores };
   },
 };
 
@@ -1165,5 +1271,112 @@ export const offlineQueue = {
   async getQueueFillPercentage(): Promise<number> {
     const stats = await this.getStats();
     return (stats.count / stats.config.MAX_ITEMS) * 100;
+  },
+
+  // ── BENEFICIARIOS OFFLINE ───────────────────────────────────
+  /**
+   * Obtiene todos los beneficiarios pendientes de sincronizar
+   */
+  async getPendingBeneficiarios(): Promise<PendingBeneficiarioUpload[]> {
+    try {
+      const raw = await AsyncStorage.getItem(KEYS.BENEFICIARIOS_OFFLINE);
+      if (!raw) return [];
+      
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        console.warn('Datos de beneficiarios offline no son array, limpiando');
+        await this.clearBeneficiariosOffline();
+        return [];
+      }
+      
+      // Filtrar items válidos y no expirados
+      const now = Date.now();
+      const valid = parsed.filter((item: PendingBeneficiarioUpload) => {
+        if (!item.local_id || !item.payload) return false;
+        const itemAge = now - new Date(item.created_at).getTime();
+        return itemAge <= OFFLINE_QUEUE_CONFIG.ITEM_EXPIRY_MS;
+      });
+      
+      // Actualizar si hay cambios
+      if (valid.length !== parsed.length) {
+        await AsyncStorage.setItem(KEYS.BENEFICIARIOS_OFFLINE, JSON.stringify(valid));
+      }
+      
+      return valid;
+    } catch (e) {
+      console.error('Error leyendo beneficiarios offline:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Agrega un beneficiario a la cola offline
+   */
+  async addPendingBeneficiario(item: PendingBeneficiarioUpload): Promise<boolean> {
+    try {
+      const q = await this.getPendingBeneficiarios();
+      
+      // Verificar límite
+      if (q.length >= OFFLINE_QUEUE_CONFIG.MAX_ITEMS) {
+        console.warn('Cola de beneficiarios llena, removiendo más antiguo');
+        q.shift();
+      }
+      
+      q.push(item);
+      await AsyncStorage.setItem(KEYS.BENEFICIARIOS_OFFLINE, JSON.stringify(q));
+      console.log(`[offlineQueue] Beneficiario ${item.local_id} guardado offline`);
+      return true;
+    } catch (e) {
+      console.error('Error guardando beneficiario offline:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Limpia la cola de beneficiarios offline
+   */
+  async clearBeneficiariosOffline(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(KEYS.BENEFICIARIOS_OFFLINE);
+    } catch (e) {
+      console.error('Error limpiando cola de beneficiarios:', e);
+    }
+  },
+
+  /**
+   * Sincroniza todos los beneficiarios pendientes
+   */
+  async sincronizarBeneficiarios(): Promise<{ sincronizados: number; errores: string[] }> {
+    const token = await getToken();
+    if (!token) {
+      return { sincronizados: 0, errores: ['No hay token de autenticación'] };
+    }
+    
+    const pendientes = await this.getPendingBeneficiarios();
+    if (pendientes.length === 0) {
+      return { sincronizados: 0, errores: [] };
+    }
+    
+    const errores: string[] = [];
+    let sincronizados = 0;
+    const restantes: PendingBeneficiarioUpload[] = [];
+    
+    for (const item of pendientes) {
+      try {
+        await http<unknown>('POST', '/beneficiarios', item.payload, token);
+        sincronizados++;
+        console.log(`[sync] Beneficiario ${item.local_id} sincronizado`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'error desconocido';
+        errores.push(`Error sincronizando ${item.local_id}: ${msg}`);
+        // Mantener en cola para reintentar
+        restantes.push(item);
+      }
+    }
+    
+    // Actualizar cola con los que fallaron
+    await AsyncStorage.setItem(KEYS.BENEFICIARIOS_OFFLINE, JSON.stringify(restantes));
+    
+    return { sincronizados, errores };
   },
 };

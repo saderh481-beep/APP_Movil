@@ -104,6 +104,10 @@ export default function Login() {
       const res = await authApi.login(codigo);
       
       await setAuth(res.token, res.tecnico);
+      console.log('[LOGIN] Auth guardado, token:', res.token.substring(0, 20) + '...');
+      
+      // Esperar a que AsyncStorage confirme escritura (problema de sincronización)
+      await new Promise(r => setTimeout(r, 300));
       
       // Verify connection and load inicial data
       try {

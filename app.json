@@ -6,6 +6,9 @@
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "backgroundColor": "#621132",
@@ -38,7 +41,9 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-sharing",
+      "expo-font"
     ],
     "scheme": "saderh",
     "extra": {

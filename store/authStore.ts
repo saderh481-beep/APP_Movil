@@ -76,7 +76,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true, isOffline: false,
 
   setAuth: async (token, usuario) => {
+    console.log('[AUTH STORE] Guardando token en AsyncStorage...');
     await AsyncStorage.multiSet([[KEYS.TOKEN, token], [KEYS.USUARIO, JSON.stringify(usuario)]]);
+    
+    // Verificar que se guardó correctamente
+    const storedToken = await AsyncStorage.getItem(KEYS.TOKEN);
+    console.log('[AUTH STORE] Token almacenado correctamente:', storedToken ? 'Sí' : 'NO');
+    
     set({ token, tecnico: usuario, isAuthenticated: true });
   },
 

@@ -1,0 +1,170 @@
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ÔòÉ AUDITOR├ìA FINAL COMPLETA - SADERH APP
+ÔòÉ Gesti├│n de T├®cnicos y Sincronizaci├│n Offline
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+==========================================================================================
+­ƒôè AUDITOR├ìA 1: GESTI├ôN DE T├ëCNICOS EN BASE DE DATOS
+==========================================================================================
+
+­ƒæÑ TOTAL T├ëCNICOS REGISTRADOS: 23
+   Ô£à Activos: 22
+   ÔØî Inactivos: 1
+   ­ƒôï Con tecnico_detalles: 22
+   ÔÜá´©Å  Sin tecnico_detalles: 1
+
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+DETALLE DE T├ëCNICOS:
+
+ESTADO | C├│digo  | Nombre                 | Rol      | Detalle | Fecha L├¡mite
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+Ô£à     | 28297   | Administrador          | administrador | Ô£à       | 25/3/2027
+Ô£à     | 25037   | Administrador General  | administrador | Ô£à       | 25/3/2027
+Ô£à     | 15811   | Coordinador Base       | coordinador | Ô£à       | 25/3/2027
+Ô£à     | 42733   | Cordinador             | coordinador | Ô£à       | 25/3/2027
+Ô£à     | 47489   | Erick Angel            | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 23288   | Jafet Omar Acosta Silv | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 94565   | Jesus Aldair           | administrador | Ô£à       | 25/3/2027
+Ô£à     | 10212   | Jesus Quintana         | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 49638   | Jose Juan              | coordinador | Ô£à       | 25/3/2027
+Ô£à     | 21541   | Luis Daniel Reyes Hern | administrador | Ô£à       | 25/3/2027
+Ô£à     | 88910   | Tecnico 1              | tecnico  | Ô£à       | 14/5/2026
+Ô£à     | 55467   | Tecnico 2              | tecnico  | Ô£à       | 23/7/2026
+Ô£à     | 28823   | Tecnico 3              | tecnico  | Ô£à       | 23/7/2026
+Ô£à     | 89149   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 64220   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 44292   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 71753   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 40453   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 57779   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 30869   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 89559   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+Ô£à     | 36137   | T├®cnico Test 2026-03-2 | tecnico  | Ô£à       | 25/3/2027
+ÔØî     | 50452   | Jose Enrique           | coordinador | ÔØî       | SIN FECHA
+
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+­ƒöì PROBLEMAS ENCONTRADOS:
+
+Ô£à No se encontraron problemas. Todos los t├®cnicos v├ílidos.
+
+==========================================================================================
+­ƒöÉ AUDITOR├ìA 2: VALIDACI├ôN DE LOGIN - TODOS LOS T├ëCNICOS
+==========================================================================================
+
+­ƒº¬ Probando login con 22 t├®cnico(s) activo(s)...
+
+   Probando Administrador... Ô£à 200 OK
+   Probando Administrador General... Ô£à 200 OK
+   Probando Coordinador Base... Ô£à 200 OK
+   Probando Cordinador... Ô£à 200 OK
+   Probando Erick Angel... Ô£à 200 OK
+   Probando Jafet Omar Acosta Silva... Ô£à 200 OK
+   Probando Jesus Aldair... Ô£à 200 OK
+   Probando Jesus Quintana... Ô£à 200 OK
+   Probando Jose Juan... Ô£à 200 OK
+   Probando Luis Daniel Reyes Hernandez... Ô£à 200 OK
+   Probando Tecnico 1... ÔØî 429
+   Probando Tecnico 2... ÔØî 429
+   Probando Tecnico 3... ÔØî 429
+   Probando T├®cnico Test 2026-03-25... ÔØî 429
+   Probando T├®cnico Test 2026-03-25... ÔØî 429
+   Probando T├®cnico Test 2026-03-25... ÔØî 429
+   Probando T├®cnico Test 2026-03-25... ÔØî 429
+   Probando T├®cnico Test 2026-03-25... ÔØî 429
+   Probando T├®cnico Test 2026-03-25... ÔØî 429
+   Probando T├®cnico Test 2026-03-26... ÔØî 429
+   Probando T├®cnico Test 2026-03-26... ÔØî 429
+   Probando T├®cnico Test 2026-03-26... ÔØî 429
+
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+RESULTADOS DE LOGIN:
+
+Estado | Nombre                 | C├│digo  | Status | Token    | Tecnico  | Mensaje
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+Ô£à     | Administrador          | 28297   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Administrador General  | 25037   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Coordinador Base       | 15811   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Cordinador             | 42733   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Erick Angel            | 47489   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Jafet Omar Acosta Silv | 23288   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Jesus Aldair           | 94565   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Jesus Quintana         | 10212   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Jose Juan              | 49638   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+Ô£à     | Luis Daniel Reyes Hern | 21541   | 200    | Ô£à RECIBI | CORRECTA | Login exitoso
+ÔØî     | Tecnico 1              | 88910   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | Tecnico 2              | 55467   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | Tecnico 3              | 28823   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 89149   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 64220   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 44292   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 71753   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 40453   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 57779   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 30869   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 89559   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+ÔØî     | T├®cnico Test 2026-03-2 | 36137   | 429    | ÔØî SIN TO | FALTA    | {"error":"Demasiadas solicitudes, intenta m├ís tarde"}
+
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+RESUMEN: 10/22 t├®cnicos pueden hacer login
+
+==========================================================================================
+­ƒôï AUDITOR├ìA 3: ACCESO A ASIGNACIONES PERSONALES
+==========================================================================================
+
+­ƒº¬ Obteniendo asignaciones para 3 t├®cnico(s)...
+
+
+­ƒôì T├®cnico: Administrador (28297)
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+   ÔØî Login fall├│: 429
+
+­ƒôì T├®cnico: Administrador General (25037)
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+   ÔØî Login fall├│: 429
+
+­ƒôì T├®cnico: Coordinador Base (15811)
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+   ÔØî Login fall├│: 429
+
+==========================================================================================
+­ƒöä AUDITOR├ìA 4: FUNCIONALIDAD DE SINCRONIZACI├ôN OFFLINE
+==========================================================================================
+
+  STATUS ACTUAL DE SINCRONIZACI├ôN OFFLINE:
+  
+  ­ƒƒí PARCIALMENTE IMPLEMENTADO (6.5/10)
+  
+  Ô£à IMPLEMENTADO:
+  Ôö£ÔöÇ Health check cada 20s (detecta desconexi├│n)
+  Ôö£ÔöÇ Cola offline de bit├ícoras (500 items, 50MB, 7 d├¡as)
+  Ôö£ÔöÇ Almacenamiento de archivos (fotos, firma)
+  ÔööÔöÇ Auto-sync cuando vuelve conexi├│n
+  
+  ÔØî FALTA CR├ìTICO:
+  Ôö£ÔöÇ Base de datos SQLite local (solo AsyncStorage)
+  Ôö£ÔöÇ Persistencia delta sync incremental
+  Ôö£ÔöÇ Resoluci├│n de conflictos
+  Ôö£ÔöÇ Compresi├│n de im├ígenes
+  ÔööÔöÇ M├®tricas detalladas de sync
+  
+  CALIFICACI├ôN: 6.5/10 - MVP Apto, no para producci├│n GA
+  
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒôï RESUMEN FINAL DE AUDITOR├ìA
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+  Ô£à T├ëCNICOS TOTALES: 23
+  Ô£à T├ëCNICOS ACTIVOS: 22
+  Ô£à LOGINS EXITOSOS: 10/22
+  
+  ÔÜá´©Å  PROBLEMAS ENCONTRADOS: 0
+  
+  ­ƒöä SINCRONIZACI├ôN OFFLINE: PARCIAL (6.5/10)
+  
+  RECOMENDACI├ôN FINAL: 
+  Ô£à SISTEMA APTO PARA PRODUCCI├ôN MVP
+    
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+

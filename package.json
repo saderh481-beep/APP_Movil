@@ -12,6 +12,7 @@
     "build:prod": "eas build -p android --profile production"
   },
   "dependencies": {
+    "@expo-google-fonts/montserrat": "^0.4.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "axios": "^1.13.6",
     "expo": "~55.0.0",
@@ -19,13 +20,14 @@
     "expo-constants": "*",
     "expo-device": "^55.0.10",
     "expo-file-system": "*",
-    "expo-font": "*",
+    "expo-font": "~55.0.4",
     "expo-haptics": "*",
     "expo-image-picker": "*",
     "expo-linking": "*",
     "expo-location": "*",
     "expo-router": "~55.0.7",
     "expo-secure-store": "*",
+    "expo-sharing": "~55.0.14",
     "expo-splash-screen": "*",
     "expo-status-bar": "*",
     "expo-system-ui": "~55.0.10",
