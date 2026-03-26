@@ -20,8 +20,8 @@ async function crearYProbarTecnico() {
     console.log('🚀 CREAR Y PROBAR NUEVO TÉCNICO - FLUJO COMPLETO');
     console.log('='.repeat(70) + '\n');
 
-    // Generar código único de 5 dígitos
-    const codigo = Math.floor(10000 + Math.random() * 90000).toString();
+    // Generar código único de 5 dígitos (10000-99999 son 5 dígitos)
+    const codigo = String(Math.floor(10000 + Math.random() * 90000));
     const nombre = `Técnico Test ${new Date().toISOString().split('T')[0]}`;
     const correo = `tecnico${codigo}@test.com`;
     
@@ -58,7 +58,7 @@ async function crearYProbarTecnico() {
         'tecnico',
         true,
         ${fechaLimite}::date,
-        'activo'
+        'en_servicio'
       )
       RETURNING id, codigo_acceso, nombre, correo, rol, activo, fecha_limite, estado_corte
     `;

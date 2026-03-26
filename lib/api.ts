@@ -98,7 +98,16 @@ const runtime = {
 };
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const getToken = async () => (await AsyncStorage.getItem(KEYS.TOKEN)) ?? '';
+const getToken = async () => {
+  try {
+    const token = await AsyncStorage.getItem(KEYS.TOKEN);
+    // Solo retornar token si es válido (no vacío y no null)
+    return token && token.trim().length > 0 ? token : null;
+  } catch (error) {
+    console.error('Error obteniendo token de AsyncStorage:', error);
+    return null;
+  }
+};
 
 const parseConnectionConfig = (raw: string | null): ConnectionConfig => {
   if (!raw) return {};
@@ -232,7 +241,9 @@ async function httpWithRetry<T>(
       console.warn(`[HTTP ERROR ${res.status}] ${serverError}`);
       
       if (res.status === 401) {
-        throw new Error(serverError);
+        // Error de autenticación - no reintentar
+        console.warn('[AUTH ERROR] Token inválido o expirado. Limpiar sesión.');
+        throw new Error(`Autenticación falló: ${serverError}`);
       }
       if (res.status === 403) {
         throw new Error('No tienes permiso para realizar esta acción.');
@@ -443,6 +454,12 @@ export const actividadesApi = {
   /** GET /mis-actividades */
   async listar(): Promise<Actividad[]> {
     const token = await getToken();
+    
+    if (!token) {
+      console.error('[API ERROR] No hay token disponible para /mis-actividades');
+      throw new Error('No autenticado: Token no disponible');
+    }
+    
     const json = await http<unknown>('GET', '/mis-actividades', undefined, token);
     const data = unwrapData(json);
     const arr = asArray<unknown>(isRecord(data) && data.actividades ? data.actividades : data);
@@ -487,6 +504,12 @@ export const beneficiariosApi = {
   /** GET /mis-beneficiarios */
   async listar(search?: string): Promise<Beneficiario[]> {
     const token = await getToken();
+    
+    if (!token) {
+      console.error('[API ERROR] No hay token disponible para /mis-beneficiarios');
+      throw new Error('No autenticado: Token no disponible');
+    }
+    
     const json = await http<unknown>('GET', '/mis-beneficiarios', undefined, token);
     const data = unwrapData(json);
     const arr = asArray<unknown>(isRecord(data) && data.beneficiarios ? data.beneficiarios : data);
@@ -529,6 +552,12 @@ export const cadenasApi = {
   /** GET /cadenas-productivas */
   async listar(): Promise<CadenaProductiva[]> {
     const token = await getToken();
+    
+    if (!token) {
+      console.error('[API ERROR] No hay token disponible para /cadenas-productivas');
+      throw new Error('No autenticado: Token no disponible');
+    }
+    
     const json = await http<unknown>('GET', '/cadenas-productivas', undefined, token);
     const data = unwrapData(json);
     const arr = asArray<unknown>(isRecord(data) && data.cadenas ? data.cadenas : data);
@@ -537,6 +566,15 @@ export const cadenasApi = {
       return {
         id: String(rec.id ?? ''),
         nombre: String(rec.nombre ?? ''),
+        descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
+        activo: toBoolean(rec.activo, true),
+        created_by: String(rec.created_by ?? ''),
+        created_at: String(rec.created_at ?? nowIso()),
+        updated_at: String(rec.updated_at ?? nowIso()),
+      };
+    }).filter(c => c.id && c.nombre);
+  },
+};
         descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
         activo: toBoolean(rec.activo, true),
         created_by: String(rec.created_by ?? ''),

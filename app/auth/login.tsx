@@ -110,7 +110,23 @@ export default function Login() {
         const asigResp = await asignacionesApi.listar();
         console.log(`Se cargaron ${asigResp.total} asignaciones`);
       } catch (e) {
-        console.warn('No se pudieron cargar las asignaciones inicialmente:', e);
+        // Log del error pero no bloquear el login
+        const errMsg = e instanceof Error ? e.message : 'Error desconocido';
+        console.warn('Advertencia al cargar asignaciones:', errMsg);
+        
+        // Si es un error de autenticación después de login, algo está mal
+        if (errMsg.includes('Autenticación falló') || errMsg.includes('No autenticado')) {
+          console.error('ERROR CRÍTICO: Token rechazado inmediatamente después de login');
+          // Limpiar sesión y mostrar error
+          await clearAuth();
+          setErrorMessage('Error de autenticación. Por favor, intenta de nuevo.');
+          setStatus('error');
+          shake();
+          setCodigo('');
+          setTimeout(() => ref.current?.focus(), 300);
+          setLoading(false);
+          return;
+        }
       }
       
       setStatus('success');
@@ -126,6 +142,11 @@ export default function Login() {
       // Si el error es de conexión, mostrar sugerencia
       if (errorMsg.includes('conexión') || errorMsg.includes('internet') || errorMsg.includes('servidor')) {
         setErrorMessage(errorMsg + '. Verifica tu conexión a internet e intenta de nuevo.');
+      }
+      
+      // Si el error es de validación (Zod o similar), simplificar el mensaje
+      if (errorMsg.includes('pattern') || errorMsg.includes('format')) {
+        setErrorMessage('Formato de código inválido. Debe ser exactamente 5 dígitos.');
       }
       
       await clearAuth();
