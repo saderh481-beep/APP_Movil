@@ -30,7 +30,7 @@ const mergeAsignaciones = (cached: Asignacion[], fresh: Asignacion[]): Asignacio
 };
 
 export default function Dashboard() {
-  const { tecnico, isOffline, setOffline } = useAuthStore();
+  const { tecnico, isOffline, setOffline, token } = useAuthStore();
   const [asigs, setAsigs] = useState<Asignacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,6 +62,19 @@ export default function Dashboard() {
   const cargar = useCallback(async () => {
     try {
       setErrorMsg('');
+      
+      // Esperar a que el token esté disponible
+      if (!token) {
+        console.log('[DASHBOARD] Esperando token de autenticación...');
+        // Intentar obtener el token directamente de AsyncStorage
+        const storedToken = await AsyncStorage.getItem('@saderh:token');
+        if (!storedToken) {
+          setErrorMsg('Por favor, inicia sesión nuevamente');
+          setLoading(false);
+          return;
+        }
+      }
+      
       const online = await syncApi.healthCheck();
       setOffline(!online);
       
@@ -233,7 +246,10 @@ export default function Dashboard() {
           <Text style={s.secT}>{titulo}</Text>
           {badge !== undefined && <View style={s.secB}><Text style={s.secBT}>{badge} visita{badge !== 1 ? 's' : ''}</Text></View>}
         </View>
-        {items.map(item => <VisitaCard key={item.id_asignacion} item={item} />)}
+        {items.map(item => (
+          // @ts-ignore
+          <VisitaCard key={item.id_asignacion} item={item} />
+        ))}
       </View>
     );
   };

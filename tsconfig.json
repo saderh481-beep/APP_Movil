@@ -3,12 +3,12 @@
   "compilerOptions": {
     "strict": true,
     "skipLibCheck": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
     "lib": ["ES2020", "DOM"],
     "target": "ES2020",

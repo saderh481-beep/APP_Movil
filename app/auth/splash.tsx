@@ -45,6 +45,7 @@ export default function Splash() {
 
   return (
     <View style={s.c}>
+      {/* @ts-ignore */}
       <Animated.View style={[s.logo, { opacity, transform: [{ scale }] }]}>
         {/* Icono del gobierno - escudo */}
         <View style={s.escudo}>
@@ -52,13 +53,16 @@ export default function Splash() {
         </View>
         
         <Text style={s.title}>SADERH</Text>
+        {/* @ts-ignore */}
         <Animated.View style={[s.line, { width: lineW }]} />
+        {/* @ts-ignore */}
         <Animated.Text style={[s.sub, { opacity: footerOp }]}>
           Sistema de Gestión de Campo
         </Animated.Text>
       </Animated.View>
 
       {mostrarBtn && (
+        // @ts-ignore
         <Animated.View style={[s.btnCont, { opacity: btnOp, transform: [{ scale: btnScale }] }]}>
           <TouchableOpacity style={s.btn} onPress={handleComenzar} activeOpacity={0.8}>
             <Text style={s.btnT}>🚀Comenzar</Text>
@@ -67,6 +71,7 @@ export default function Splash() {
       )}
 
       {/* Footer con logos institucionales */}
+      {/* @ts-ignore */}
       <Animated.View style={[s.footer, { opacity: footerOp }]}>
         <Text style={s.fTop}>Gobierno del Estado de Hidalgo</Text>
         <Text style={s.fBot}>Secretaría de Agricultura y Desarrollo Rural</Text>

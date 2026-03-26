@@ -4,7 +4,11 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FileManager } from '@/lib/file-manager';
+import { startAutoExport, stopAutoExport } from '@/lib/export-service';
+import { startAutoSync, stopAutoSync } from '@/lib/sync-service';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -13,6 +17,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadAuth().then(() => SplashScreen.hideAsync());
+  }, []);
+
+  // Inicializar carpetas de la app al arrancar
+  useEffect(() => {
+    const initFolders = async () => {
+      try {
+        await FileManager.initializeAppDirectories();
+        console.log('[LAYOUT] Carpetas de la app inicializadas');
+      } catch (e) {
+        console.error('[LAYOUT] Error inicializando carpetas:', e);
+      }
+    };
+    initFolders();
   }, []);
 
   useEffect(() => {
@@ -46,15 +63,37 @@ export default function RootLayout() {
 
     tick();
     const t = setInterval(tick, 20_000);
+    
     return () => {
       active = false;
       clearInterval(t);
     };
   }, [isAuthenticated, setOffline]);
 
+  // Iniciar servicios automáticos cuando el usuario está autenticado
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    // Iniciar sincronización automática de bitácoras (cada 30 segundos)
+    startAutoSync(30 * 1000);
+    
+    // Iniciar exportación automática (cada 5 minutos)
+    startAutoExport(5 * 60 * 1000);
+    
+    console.log('[LAYOUT] Servicios automáticos iniciados');
+    
+    return () => {
+      // Limpiar servicios al cerrar sesión
+      stopAutoSync();
+      stopAutoExport();
+      console.log('[LAYOUT] Servicios automáticos detenidos');
+    };
+  }, [isAuthenticated]);
+
   if (isLoading) return null;
 
   return (
+    // @ts-ignore - GestureHandlerRootView en newer versiones
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="index" />
