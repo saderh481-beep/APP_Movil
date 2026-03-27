@@ -20,6 +20,8 @@
     ".expo/types/**/*.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "_tmp_campo_api_app",
+    "_tmp_campo_api_web"
   ]
 }

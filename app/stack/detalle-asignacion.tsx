@@ -33,6 +33,11 @@ type Punto = { x: number; y: number };
 type Trazo = Punto[];
 const OFFLINE_DIR = `${FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? ''}offline-bitacoras`;
 const ASIG_CACHE_KEY = '@saderh:asignaciones_cache';
+const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
+  if (!tecnicoId) return true;
+  if (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '') return true;
+  return String(asignacion.id_tecnico) === String(tecnicoId);
+};
 
 const pathFromStroke = (stroke: Trazo): string => {
   if (!stroke.length) return '';
@@ -248,22 +253,21 @@ export default function DetalleAsignacion() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const idNum = Number.parseInt(id ?? '0', 10);
-      if (!idNum || Number.isNaN(idNum)) {
-        setLoading(false);
-        return;
-      }
+      const rawId = String(id ?? '');
+      const idNum = Number.parseInt(rawId, 10);
       try {
         const res = await asignacionesApi.listar();
         if (!active) return;
-        const visibles = (res.asignaciones ?? []).filter((a) => !tecnico?.id || !a.id_tecnico || String(a.id_tecnico) === String(tecnico.id));
-        setAsig(visibles.find((a) => String(a.id_asignacion ?? a.id) === String(idNum)) ?? null);
+        const visibles = (res.asignaciones ?? []).filter((a) => tecnicoMatches(a, tecnico?.id));
+        setAsig(visibles.find((a) => String(a.id_asignacion ?? a.id) === rawId || (!Number.isNaN(idNum) && String(a.id_asignacion ?? a.id) === String(idNum))) ?? null);
       } catch {
         try {
           const rawCache = await AsyncStorage.getItem(ASIG_CACHE_KEY);
           const parsed = rawCache ? JSON.parse(rawCache) : [];
-          const arr = Array.isArray(parsed) ? (parsed as Asignacion[]) : [];
-          const found = arr.find((a) => Number(a.id_asignacion) === idNum) ?? null;
+          const arr = Array.isArray(parsed)
+            ? (parsed as Asignacion[])
+            : (Array.isArray(parsed?.data) ? parsed.data as Asignacion[] : []);
+          const found = arr.find((a) => String(a.id_asignacion ?? a.id) === rawId || (!Number.isNaN(idNum) && Number(a.id_asignacion) === idNum)) ?? null;
           if (active) setAsig(found);
         } catch {
           if (active) setAsig(null);

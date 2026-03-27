@@ -66,6 +66,101 @@ const unwrapData = (value: unknown): unknown => {
 
 const nowIso = () => new Date().toISOString();
 
+const toStringOrUndefined = (value: unknown): string | undefined => {
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+};
+
+const normalizeBeneficiario = (raw: unknown): Beneficiario => {
+  const rec = isRecord(raw) ? raw : {};
+  const id = String(rec.id ?? rec.id_beneficiario ?? '');
+  const nombreCompleto = String(rec.nombre_completo ?? rec.nombre ?? '');
+
+  return {
+    id,
+    id_beneficiario: toStringOrUndefined(rec.id_beneficiario ?? rec.id),
+    nombre: String(rec.nombre ?? nombreCompleto),
+    nombre_completo: nombreCompleto || String(rec.nombre ?? ''),
+    municipio: String(rec.municipio ?? ''),
+    localidad: rec.localidad ? String(rec.localidad) : undefined,
+    direccion: rec.direccion ? String(rec.direccion) : undefined,
+    cp: rec.cp ? String(rec.cp) : undefined,
+    telefono_principal: rec.telefono_principal ? String(rec.telefono_principal) : undefined,
+    telefono_secundario: rec.telefono_secundario ? String(rec.telefono_secundario) : undefined,
+    coord_parcela: rec.coord_parcela ? String(rec.coord_parcela) : undefined,
+    telefono_contacto: rec.telefono_contacto ? String(rec.telefono_contacto) : undefined,
+    curp: rec.curp ? String(rec.curp) : undefined,
+    folio_saderh: rec.folio_saderh ? String(rec.folio_saderh) : undefined,
+    cadena_productiva: rec.cadena_productiva ? String(rec.cadena_productiva) : undefined,
+    latitud_predio: typeof rec.latitud_predio === 'number' ? rec.latitud_predio : null,
+    longitud_predio: typeof rec.longitud_predio === 'number' ? rec.longitud_predio : null,
+    activo: toBoolean(rec.activo, true),
+    cadenas: asArray<unknown>(isRecord(rec.cadenas) ? [] : rec.cadenas).map(c => {
+      const cadena = isRecord(c) ? c : {};
+      return {
+        id: String(cadena.id ?? ''),
+        nombre: String(cadena.nombre ?? ''),
+      };
+    }).filter(c => c.id && c.nombre),
+  };
+};
+
+const normalizeActividad = (raw: unknown): Actividad => {
+  const rec = isRecord(raw) ? raw : {};
+  return {
+    id: String(rec.id ?? rec.id_actividad ?? ''),
+    nombre: String(rec.nombre ?? rec.titulo ?? ''),
+    descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
+    activo: toBoolean(rec.activo, true),
+    created_by: String(rec.created_by ?? rec.id_usuario_creo ?? ''),
+    created_at: String(rec.created_at ?? nowIso()),
+    updated_at: String(rec.updated_at ?? nowIso()),
+  };
+};
+
+const normalizeAsignacionFromActividad = (actividad: Actividad, raw?: unknown): Asignacion => {
+  const rec = isRecord(raw) ? raw : {};
+  return {
+    ...actividad,
+    id_asignacion: actividad.id,
+    id_tecnico: toStringOrUndefined(rec.id_tecnico ?? rec.tecnico_id),
+    id_usuario_creo: actividad.created_by,
+    id_beneficiario: toStringOrUndefined(rec.id_beneficiario ?? rec.beneficiario_id),
+    tipo_asignacion: 'actividad',
+    descripcion_actividad: actividad.descripcion,
+    prioridad: 'MEDIA',
+    completado: false,
+    fecha_limite: toStringOrUndefined(rec.fecha_limite),
+    fecha_completado: toStringOrUndefined(rec.fecha_completado),
+  };
+};
+
+const normalizeAsignacionFromBeneficiario = (beneficiario: Beneficiario, raw?: unknown): Asignacion => {
+  const rec = isRecord(raw) ? raw : {};
+  const idBase = beneficiario.id_beneficiario ?? beneficiario.id;
+  return {
+    id: `beneficiario-${idBase}`,
+    nombre: beneficiario.nombre_completo ?? beneficiario.nombre,
+    descripcion: beneficiario.cadena_productiva ?? 'Beneficiario asignado',
+    activo: beneficiario.activo,
+    created_by: String(rec.created_by ?? rec.id_usuario_creo ?? ''),
+    created_at: String(rec.created_at ?? nowIso()),
+    updated_at: String(rec.updated_at ?? nowIso()),
+    id_asignacion: `beneficiario-${idBase}`,
+    id_tecnico: toStringOrUndefined(rec.id_tecnico ?? rec.tecnico_id),
+    id_usuario_creo: toStringOrUndefined(rec.id_usuario_creo ?? rec.created_by),
+    id_beneficiario: idBase,
+    tipo_asignacion: 'beneficiario',
+    descripcion_actividad: beneficiario.cadena_productiva ?? 'Seguimiento de beneficiario',
+    prioridad: 'MEDIA',
+    completado: false,
+    fecha_limite: toStringOrUndefined(rec.fecha_limite),
+    fecha_completado: toStringOrUndefined(rec.fecha_completado),
+    beneficiario,
+  };
+};
+
 export const API_CONFIG = {
   APP_API_URL: normalizeBaseUrl(process.env.EXPO_PUBLIC_APP_API_URL ?? DEFAULT_APP_API_URL),
   WEB_API_URL: normalizeBaseUrl(process.env.EXPO_PUBLIC_WEB_API_URL ?? DEFAULT_WEB_API_URL),
@@ -477,38 +572,38 @@ export const actividadesApi = {
     const json = await http<unknown>('GET', '/mis-actividades', undefined, token);
     const data = unwrapData(json);
     const arr = asArray<unknown>(isRecord(data) && data.actividades ? data.actividades : data);
-    return arr.map(raw => {
-      const rec = isRecord(raw) ? raw : {};
-      return {
-        id: String(rec.id ?? ''),
-        nombre: String(rec.nombre ?? ''),
-        descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
-        activo: toBoolean(rec.activo, true),
-        created_by: String(rec.created_by ?? ''),
-        created_at: String(rec.created_at ?? nowIso()),
-        updated_at: String(rec.updated_at ?? nowIso()),
-      };
-    }).filter(a => a.id && a.nombre);
+    return arr.map(raw => normalizeActividad(raw)).filter(a => a.id && a.nombre);
   },
 };
 
 // ── ASIGNACIONES (usando Actividades) ──────────────────────
 export const asignacionesApi = {
-  /** GET /mis-actividades - Devuelve AsignacionesResponse para compatibilidad */
+  /** Combina actividades y beneficiarios del técnico autenticado */
   async listar(): Promise<AsignacionesResponse> {
-    const actividades = await actividadesApi.listar();
-    // Mapear Actividades a Asignaciones para compatibilidad
-    const asignaciones: Asignacion[] = actividades.map(a => ({
-      ...a,
-      id_asignacion: a.id,
-      id_tecnico: '', 
-      id_usuario_creo: a.created_by,
-      id_beneficiario: '',
-      tipo_asignacion: 'actividad' as const,
-      descripcion_actividad: a.descripcion,
-      prioridad: 'MEDIA' as const,
-      completado: false,
-    }));
+    const token = await getToken();
+    if (!token) {
+      console.error('[API ERROR] No hay token disponible para asignaciones');
+      throw new Error('No autenticado: Token no disponible');
+    }
+
+    const [actividadesJson, beneficiariosJson] = await Promise.all([
+      http<unknown>('GET', '/mis-actividades', undefined, token),
+      http<unknown>('GET', '/mis-beneficiarios', undefined, token),
+    ]);
+
+    const actividadesData = unwrapData(actividadesJson);
+    const actividadesRaw = asArray<unknown>(isRecord(actividadesData) && actividadesData.actividades ? actividadesData.actividades : actividadesData);
+    const actividades = actividadesRaw
+      .map(raw => normalizeAsignacionFromActividad(normalizeActividad(raw), raw))
+      .filter(a => a.id_asignacion && a.nombre);
+
+    const beneficiariosData = unwrapData(beneficiariosJson);
+    const beneficiariosRaw = asArray<unknown>(isRecord(beneficiariosData) && beneficiariosData.beneficiarios ? beneficiariosData.beneficiarios : beneficiariosData);
+    const beneficiarios = beneficiariosRaw
+      .map(raw => normalizeAsignacionFromBeneficiario(normalizeBeneficiario(raw), raw))
+      .filter(a => a.id_asignacion && a.beneficiario?.id);
+
+    const asignaciones = [...beneficiarios, ...actividades];
     return { success: true, asignaciones, total: asignaciones.length };
   },
 };
@@ -527,33 +622,12 @@ export const beneficiariosApi = {
     const json = await http<unknown>('GET', '/mis-beneficiarios', undefined, token);
     const data = unwrapData(json);
     const arr = asArray<unknown>(isRecord(data) && data.beneficiarios ? data.beneficiarios : data);
-    let list = arr.map(raw => {
-      const rec = isRecord(raw) ? raw : {};
-      return {
-        id: String(rec.id ?? ''),
-        nombre: String(rec.nombre ?? ''),
-        municipio: String(rec.municipio ?? ''),
-        localidad: rec.localidad ? String(rec.localidad) : undefined,
-        direccion: rec.direccion ? String(rec.direccion) : undefined,
-        cp: rec.cp ? String(rec.cp) : undefined,
-        telefono_principal: rec.telefono_principal ? String(rec.telefono_principal) : undefined,
-        telefono_secundario: rec.telefono_secundario ? String(rec.telefono_secundario) : undefined,
-        coord_parcela: rec.coord_parcela ? String(rec.coord_parcela) : undefined,
-        activo: toBoolean(rec.activo, true),
-        cadenas: asArray<unknown>(isRecord(rec.cadenas) ? [] : rec.cadenas).map(c => {
-          const cadena = isRecord(c) ? c : {};
-          return {
-            id: String(cadena.id ?? ''),
-            nombre: String(cadena.nombre ?? ''),
-          };
-        }),
-      };
-    }).filter(b => b.id && b.nombre);
+    let list = arr.map(raw => normalizeBeneficiario(raw)).filter(b => b.id && (b.nombre || b.nombre_completo));
 
     if (search && search.trim().length > 0) {
       const q = search.toLowerCase();
       list = list.filter(b =>
-        [b.nombre, b.municipio].some(f => f.toLowerCase().includes(q))
+        [b.nombre, b.nombre_completo ?? '', b.municipio, b.localidad ?? '', b.folio_saderh ?? ''].some(f => f.toLowerCase().includes(q))
       );
     }
 
@@ -1013,33 +1087,8 @@ export const syncApi = {
     const rec = isRecord(data) ? data : (isRecord(json) ? json : {});
     return {
       sync_ts: String(rec.sync_ts ?? nowIso()),
-      beneficiarios: asArray<unknown>(rec.beneficiarios).map(b => {
-        const beneficiario = isRecord(b) ? b : {};
-        return {
-          id: String(beneficiario.id ?? ''),
-          nombre: String(beneficiario.nombre ?? ''),
-          municipio: String(beneficiario.municipio ?? ''),
-          localidad: beneficiario.localidad ? String(beneficiario.localidad) : undefined,
-          direccion: beneficiario.direccion ? String(beneficiario.direccion) : undefined,
-          cp: beneficiario.cp ? String(beneficiario.cp) : undefined,
-          telefono_principal: beneficiario.telefono_principal ? String(beneficiario.telefono_principal) : undefined,
-          telefono_secundario: beneficiario.telefono_secundario ? String(beneficiario.telefono_secundario) : undefined,
-          coord_parcela: beneficiario.coord_parcela ? String(beneficiario.coord_parcela) : undefined,
-          activo: toBoolean(beneficiario.activo, true),
-        };
-      }),
-      actividades: asArray<unknown>(rec.actividades).map(a => {
-        const actividad = isRecord(a) ? a : {};
-        return {
-          id: String(actividad.id ?? ''),
-          nombre: String(actividad.nombre ?? ''),
-          descripcion: actividad.descripcion ? String(actividad.descripcion) : undefined,
-          activo: toBoolean(actividad.activo, true),
-          created_by: String(actividad.created_by ?? ''),
-          created_at: String(actividad.created_at ?? nowIso()),
-          updated_at: String(actividad.updated_at ?? nowIso()),
-        };
-      }),
+      beneficiarios: asArray<unknown>(rec.beneficiarios).map(b => normalizeBeneficiario(b)),
+      actividades: asArray<unknown>(rec.actividades).map(a => normalizeActividad(a)),
       cadenas: asArray<unknown>(rec.cadenas).map(c => {
         const cadena = isRecord(c) ? c : {};
         return {

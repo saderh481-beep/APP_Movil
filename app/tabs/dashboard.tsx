@@ -29,6 +29,19 @@ const mergeAsignaciones = (cached: Asignacion[], fresh: Asignacion[]): Asignacio
   return Array.from(map.values());
 };
 
+const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
+  if (!tecnicoId) return true;
+  if (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '') return true;
+  return String(asignacion.id_tecnico) === String(tecnicoId);
+};
+
+const sortAsignaciones = (items: Asignacion[]) =>
+  [...items].sort((a, b) => {
+    const fechaA = a.fecha_limite ?? a.updated_at ?? a.created_at ?? '';
+    const fechaB = b.fecha_limite ?? b.updated_at ?? b.created_at ?? '';
+    return fechaA.localeCompare(fechaB);
+  });
+
 export default function Dashboard() {
   const { tecnico, isOffline, setOffline, token } = useAuthStore();
   const [asigs, setAsigs] = useState<Asignacion[]>([]);
@@ -105,10 +118,38 @@ export default function Dashboard() {
       let fresh: Asignacion[] = [];
       try {
         const deltaResponse = await syncApi.delta(lastSyncTime || undefined);
-        const deltaData = isRecord(deltaResponse) ? (deltaResponse as any)?.data : undefined;
-        if (Array.isArray(deltaData)) {
-          fresh = deltaData;
-        }
+        const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
+          ? deltaResponse.beneficiarios.map((beneficiario) => ({
+              id: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
+              nombre: beneficiario.nombre_completo ?? beneficiario.nombre,
+              descripcion: beneficiario.cadena_productiva ?? 'Beneficiario asignado',
+              activo: beneficiario.activo,
+              created_by: '',
+              created_at: deltaResponse.sync_ts,
+              updated_at: deltaResponse.sync_ts,
+              id_asignacion: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
+              id_beneficiario: beneficiario.id_beneficiario ?? beneficiario.id,
+              tipo_asignacion: 'beneficiario' as const,
+              descripcion_actividad: beneficiario.cadena_productiva ?? 'Seguimiento de beneficiario',
+              prioridad: 'MEDIA' as const,
+              completado: false,
+              beneficiario,
+            }))
+          : [];
+        const actividadesDelta = Array.isArray(deltaResponse.actividades)
+          ? deltaResponse.actividades.map((actividad) => ({
+              ...actividad,
+              id_asignacion: actividad.id,
+              id_tecnico: '',
+              id_usuario_creo: actividad.created_by,
+              id_beneficiario: '',
+              tipo_asignacion: 'actividad' as const,
+              descripcion_actividad: actividad.descripcion,
+              prioridad: 'MEDIA' as const,
+              completado: false,
+            }))
+          : [];
+        fresh = [...beneficiariosDelta, ...actividadesDelta];
       } catch (deltaError) {
         // Si delta falla, hacer fetch completo
         console.warn('Delta sync falló, haciendo fetch completo:', deltaError);
@@ -129,10 +170,10 @@ export default function Dashboard() {
       } catch { /* ignore */ }
       
       // Mergear datos (nuevos del servidor sobreescriben cache)
-      const merged = mergeAsignaciones(cached, fresh);
+      const merged = sortAsignaciones(mergeAsignaciones(cached, fresh).filter((a) => a.activo !== false));
       
       // Filtrar por técnico
-      const filtered = merged.filter((a) => !tecnico?.id || !a.id_tecnico || a.id_tecnico === Number(tecnico.id));
+      const filtered = merged.filter((a) => tecnicoMatches(a, tecnico?.id));
       
       setAsigs(filtered);
       
@@ -183,7 +224,7 @@ export default function Dashboard() {
   useEffect(() => {
     const t = setInterval(() => {
       cargar().catch(() => {});
-    }, 20_000);
+    }, 10_000);
     return () => clearInterval(t);
   }, [cargar]);
 
@@ -194,7 +235,9 @@ export default function Dashboard() {
     if (!search) return true;
     const q = search.toLowerCase();
     return (a.beneficiario?.nombre_completo ?? '').toLowerCase().includes(q) ||
+      (a.beneficiario?.nombre ?? '').toLowerCase().includes(q) ||
       (a.beneficiario?.municipio ?? '').toLowerCase().includes(q) ||
+      (a.beneficiario?.folio_saderh ?? '').toLowerCase().includes(q) ||
       (a.descripcion_actividad ?? '').toLowerCase().includes(q);
   });
 
@@ -202,6 +245,7 @@ export default function Dashboard() {
     hoy: fil.filter(a => (a.fecha_limite ?? '') === fmt(hoy) && !a.completado),
     man: fil.filter(a => (a.fecha_limite ?? '') === fmt(man) && !a.completado),
     prox: fil.filter(a => (a.fecha_limite ?? '') > fmt(man) && !a.completado),
+    sinFecha: fil.filter(a => !(a.fecha_limite ?? '').trim() && !a.completado),
     done: fil.filter(a => a.completado),
   };
 
@@ -341,6 +385,7 @@ export default function Dashboard() {
               <Seccion titulo={`Hoy · ${fmtL(hoy)}`} items={grp.hoy} badge={grp.hoy.length} />
               <Seccion titulo={`Mañana · ${fmtL(man)}`} items={grp.man} />
               <Seccion titulo="Próximas" items={grp.prox} />
+              <Seccion titulo="Asignadas Sin Fecha" items={grp.sinFecha} />
               <Seccion titulo="Completadas" items={grp.done} />
             </>
           )}
