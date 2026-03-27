@@ -42,6 +42,41 @@ const sortAsignaciones = (items: Asignacion[]) =>
     return fechaA.localeCompare(fechaB);
   });
 
+const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): Asignacion => ({
+  id: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
+  nombre: beneficiario.nombre_completo ?? beneficiario.nombre,
+  descripcion: beneficiario.cadena_productiva ?? 'Beneficiario asignado',
+  activo: beneficiario.activo ?? true,
+  created_by: '',
+  created_at: beneficiario.created_at ?? syncTs,
+  updated_at: beneficiario.updated_at ?? syncTs,
+  id_asignacion: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
+  id_beneficiario: beneficiario.id_beneficiario ?? beneficiario.id,
+  tipo_asignacion: 'beneficiario',
+  descripcion_actividad: beneficiario.cadena_productiva ?? 'Seguimiento de beneficiario',
+  prioridad: 'MEDIA',
+  completado: false,
+  beneficiario: {
+    ...beneficiario,
+    id: beneficiario.id_beneficiario ?? beneficiario.id,
+    nombre: beneficiario.nombre ?? beneficiario.nombre_completo ?? '',
+    nombre_completo: beneficiario.nombre_completo ?? beneficiario.nombre ?? '',
+    activo: beneficiario.activo ?? true,
+  },
+});
+
+const mapDeltaActividadToAsignacion = (actividad: any): Asignacion => ({
+  ...actividad,
+  id_asignacion: actividad.id,
+  id_tecnico: '',
+  id_usuario_creo: actividad.created_by,
+  id_beneficiario: '',
+  tipo_asignacion: 'actividad',
+  descripcion_actividad: actividad.descripcion,
+  prioridad: 'MEDIA',
+  completado: false,
+});
+
 export default function Dashboard() {
   const { tecnico, isOffline, setOffline, token } = useAuthStore();
   const [asigs, setAsigs] = useState<Asignacion[]>([]);
@@ -119,35 +154,10 @@ export default function Dashboard() {
       try {
         const deltaResponse = await syncApi.delta(lastSyncTime || undefined);
         const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
-          ? deltaResponse.beneficiarios.map((beneficiario) => ({
-              id: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
-              nombre: beneficiario.nombre_completo ?? beneficiario.nombre,
-              descripcion: beneficiario.cadena_productiva ?? 'Beneficiario asignado',
-              activo: beneficiario.activo,
-              created_by: '',
-              created_at: deltaResponse.sync_ts,
-              updated_at: deltaResponse.sync_ts,
-              id_asignacion: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
-              id_beneficiario: beneficiario.id_beneficiario ?? beneficiario.id,
-              tipo_asignacion: 'beneficiario' as const,
-              descripcion_actividad: beneficiario.cadena_productiva ?? 'Seguimiento de beneficiario',
-              prioridad: 'MEDIA' as const,
-              completado: false,
-              beneficiario,
-            }))
+          ? deltaResponse.beneficiarios.map((beneficiario) => mapDeltaBeneficiarioToAsignacion(beneficiario, deltaResponse.sync_ts))
           : [];
         const actividadesDelta = Array.isArray(deltaResponse.actividades)
-          ? deltaResponse.actividades.map((actividad) => ({
-              ...actividad,
-              id_asignacion: actividad.id,
-              id_tecnico: '',
-              id_usuario_creo: actividad.created_by,
-              id_beneficiario: '',
-              tipo_asignacion: 'actividad' as const,
-              descripcion_actividad: actividad.descripcion,
-              prioridad: 'MEDIA' as const,
-              completado: false,
-            }))
+          ? deltaResponse.actividades.map((actividad) => mapDeltaActividadToAsignacion(actividad))
           : [];
         fresh = [...beneficiariosDelta, ...actividadesDelta];
       } catch (deltaError) {
@@ -168,6 +178,12 @@ export default function Dashboard() {
           }
         }
       } catch { /* ignore */ }
+
+      // Si no había cache útil y el delta no trajo nada, pedir carga completa.
+      if (fresh.length === 0 && cached.length === 0) {
+        const fullResponse = await asignacionesApi.listar();
+        fresh = fullResponse.asignaciones ?? [];
+      }
       
       // Mergear datos (nuevos del servidor sobreescriben cache)
       const merged = sortAsignaciones(mergeAsignaciones(cached, fresh).filter((a) => a.activo !== false));
@@ -252,7 +268,8 @@ export default function Dashboard() {
   const VisitaCard = ({ item }: { item: Asignacion }) => {
     // Use time from API response or default
     const hora = '09:00 AM';
-    const ini = (item.beneficiario?.nombre_completo ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const nombreVisible = item.beneficiario?.nombre_completo ?? item.beneficiario?.nombre ?? item.nombre ?? '—';
+    const ini = nombreVisible.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
     const tc = TC[item.tipo_asignacion ?? 'actividad'] ?? Colors.gray500;
     return (
       <TouchableOpacity
@@ -263,7 +280,7 @@ export default function Dashboard() {
         <View style={[s.av, { backgroundColor: tc }]}><Text style={s.avT}>{ini}</Text></View>
         <View style={s.body}>
           <View style={s.row}>
-            <Text style={s.nom} numberOfLines={1}>{item.beneficiario?.nombre_completo ?? '—'}</Text>
+            <Text style={s.nom} numberOfLines={1}>{nombreVisible}</Text>
             <Text style={s.hora}>{hora}</Text>
           </View>
           <View style={s.row2}>
