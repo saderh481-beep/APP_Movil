@@ -32,7 +32,7 @@ const mergeAsignaciones = (cached: Asignacion[], fresh: Asignacion[]): Asignacio
 const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
   if (!tecnicoId) return true;
   if (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '') return true;
-  return String(asignacion.id_tecnico) === String(tecnicoId);
+  return String(asignacion.id_tecnico).trim() === String(tecnicoId).trim();
 };
 
 const sortAsignaciones = (items: Asignacion[]) =>
@@ -41,6 +41,12 @@ const sortAsignaciones = (items: Asignacion[]) =>
     const fechaB = b.fecha_limite ?? b.updated_at ?? b.created_at ?? '';
     return fechaA.localeCompare(fechaB);
   });
+
+const getAsignacionesCacheKey = (tecnicoId?: string) =>
+  `${ASIG_CACHE_KEY}:${tecnicoId ?? 'anon'}`;
+
+const getLastSyncTimeKey = (tecnicoId?: string) =>
+  `${LAST_SYNC_TIME_KEY}:${tecnicoId ?? 'anon'}`;
 
 const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): Asignacion => ({
   id: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
@@ -51,6 +57,7 @@ const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): As
   created_at: beneficiario.created_at ?? syncTs,
   updated_at: beneficiario.updated_at ?? syncTs,
   id_asignacion: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
+  id_tecnico: beneficiario.id_tecnico ?? beneficiario.tecnico_id ?? '',
   id_beneficiario: beneficiario.id_beneficiario ?? beneficiario.id,
   tipo_asignacion: 'beneficiario',
   descripcion_actividad: beneficiario.cadena_productiva ?? 'Seguimiento de beneficiario',
@@ -68,9 +75,9 @@ const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): As
 const mapDeltaActividadToAsignacion = (actividad: any): Asignacion => ({
   ...actividad,
   id_asignacion: actividad.id,
-  id_tecnico: '',
+  id_tecnico: actividad.id_tecnico ?? actividad.tecnico_id ?? '',
   id_usuario_creo: actividad.created_by,
-  id_beneficiario: '',
+  id_beneficiario: actividad.id_beneficiario ?? actividad.beneficiario_id ?? '',
   tipo_asignacion: 'actividad',
   descripcion_actividad: actividad.descripcion,
   prioridad: 'MEDIA',
@@ -108,6 +115,8 @@ export default function Dashboard() {
   }, []);
 
   const cargar = useCallback(async () => {
+    const asignacionesCacheKey = getAsignacionesCacheKey(tecnico?.id);
+    const lastSyncTimeKey = getLastSyncTimeKey(tecnico?.id);
     try {
       setErrorMsg('');
       
@@ -129,11 +138,11 @@ export default function Dashboard() {
       if (!online) {
         //Modo offline - cargar desde cache
         try {
-          const cacheEntry = await AsyncStorage.getItem(ASIG_CACHE_KEY);
+          const cacheEntry = await AsyncStorage.getItem(asignacionesCacheKey);
           if (cacheEntry) {
             const parsed = JSON.parse(cacheEntry) as { data: Asignacion[]; timestamp: number };
             if (Array.isArray(parsed.data)) {
-              setAsigs(parsed.data);
+              setAsigs(parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id)));
               setErrorMsg('📱 Offline: mostrando datos guardados localmente.');
             }
           }
@@ -147,7 +156,7 @@ export default function Dashboard() {
       await syncPendientes();
       
       // Obtener último timestamp de sincronización
-      const lastSyncTime = await AsyncStorage.getItem(LAST_SYNC_TIME_KEY);
+      const lastSyncTime = await AsyncStorage.getItem(lastSyncTimeKey);
       
       // CRÍTICO: Obtener delta de cambios desde el servidor
       let fresh: Asignacion[] = [];
@@ -170,11 +179,11 @@ export default function Dashboard() {
       // Obtener caché actual
       let cached: Asignacion[] = [];
       try {
-        const cacheEntry = await AsyncStorage.getItem(ASIG_CACHE_KEY);
+        const cacheEntry = await AsyncStorage.getItem(asignacionesCacheKey);
         if (cacheEntry) {
           const parsed = JSON.parse(cacheEntry) as { data: Asignacion[]; timestamp: number };
           if (Array.isArray(parsed.data)) {
-            cached = parsed.data;
+            cached = parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id));
           }
         }
       } catch { /* ignore */ }
@@ -194,28 +203,28 @@ export default function Dashboard() {
       setAsigs(filtered);
       
       // Guardar caché con metadata
-      await AsyncStorage.setItem(ASIG_CACHE_KEY, JSON.stringify({
+      await AsyncStorage.setItem(asignacionesCacheKey, JSON.stringify({
         data: filtered,
         timestamp: Date.now(),
         version: 1
       }));
       
       // Actualizar última sincronización
-      await AsyncStorage.setItem(LAST_SYNC_TIME_KEY, new Date().toISOString());
+      await AsyncStorage.setItem(lastSyncTimeKey, new Date().toISOString());
     }
     catch (e: any) {
       console.error('Error cargando asignaciones:', e);
       const isNetworkErr = syncApi.isNetworkError(e);
       
       try {
-        const cacheEntry = await AsyncStorage.getItem(ASIG_CACHE_KEY);
+        const cacheEntry = await AsyncStorage.getItem(asignacionesCacheKey);
         if (cacheEntry) {
           const parsed = JSON.parse(cacheEntry) as { data: Asignacion[]; timestamp: number };
           const cacheAge = Date.now() - parsed.timestamp;
           const isCacheValid = cacheAge < CACHE_VALIDITY_MS;
           
           if (Array.isArray(parsed.data)) {
-            setAsigs(parsed.data);
+            setAsigs(parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id)));
             const ageStr = isCacheValid ? `hace ${Math.round(cacheAge / 60000)}m` : 'cache expirado';
             setErrorMsg(isNetworkErr 
               ? `📡 Sin conexión: datos locales (${ageStr}).` 
@@ -390,11 +399,11 @@ export default function Dashboard() {
           {!fil.length ? (
             <View style={s.empty}>
               <Text style={{ fontSize: 52 }}>📭</Text>
-              <Text style={s.emptyT}>Sin visitas asignadas</Text>
+              <Text style={s.emptyT}>Sin asignaciones</Text>
               <Text style={s.emptyD}>
                 {search
                   ? 'No hay resultados.'
-                  : 'Solo verás beneficiarios y actividades que te asignaron previamente en la plataforma web.'}
+                  : 'Este técnico no tiene beneficiarios ni actividades asignadas por el momento.'}
               </Text>
             </View>
           ) : (

@@ -4,6 +4,7 @@ import { beneficiariosApi } from '@/lib/api';
 import { MUNICIPIOS_HIDALGO } from '@/lib/demoData';
 import { useAuthStore } from '@/store/authStore';
 import { CrearBeneficiarioPayload } from '@/types/models';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ const generarFolio = (): string => {
 };
 
 const INI: CrearBeneficiarioPayload = { nombre_completo: '', curp: '', municipio: '', localidad: '', folio_saderh: '', cadena_productiva: '', telefono_contacto: '' };
+const getDraftKey = (tecnicoId?: string) => `@saderh:draft:beneficiario:${tecnicoId ?? 'anon'}`;
 
 export default function AltaBeneficiario() {
   const { tecnico } = useAuthStore();
@@ -25,12 +27,41 @@ export default function AltaBeneficiario() {
   const [searchMuni, setSearchMuni] = useState('');
   const set = <K extends keyof CrearBeneficiarioPayload>(k: K, v: CrearBeneficiarioPayload[K]) => setForm((p: CrearBeneficiarioPayload) => ({ ...p, [k]: v }));
 
-  // Generar folio automáticamente al iniciar
   useEffect(() => {
-    if (!form.folio_saderh) {
-      set('folio_saderh', generarFolio());
-    }
-  }, []);
+    let active = true;
+    const restoreDraft = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(getDraftKey(tecnico?.id));
+        if (!active) return;
+        if (raw) {
+          const parsed = JSON.parse(raw) as { form?: CrearBeneficiarioPayload };
+          if (parsed?.form) {
+            setForm({
+              ...INI,
+              ...parsed.form,
+              folio_saderh: parsed.form.folio_saderh || generarFolio(),
+            });
+            return;
+          }
+        }
+        setForm((prev) => ({ ...prev, folio_saderh: prev.folio_saderh || generarFolio() }));
+      } catch {
+        setForm((prev) => ({ ...prev, folio_saderh: prev.folio_saderh || generarFolio() }));
+      }
+    };
+    restoreDraft();
+    return () => { active = false; };
+  }, [tecnico?.id]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      AsyncStorage.setItem(
+        getDraftKey(tecnico?.id),
+        JSON.stringify({ form, updated_at: new Date().toISOString() }),
+      ).catch(() => {});
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, [form, tecnico?.id]);
 
   // El backend actual no provee permisos específicos, se permite por defecto
   if (!tecnico) {
@@ -63,8 +94,16 @@ export default function AltaBeneficiario() {
     const err = validar(); if (err) { Alert.alert('Datos incompletos', err); return; }
     setLoading(true);
     try {
-      await beneficiariosApi.crear(form);
-      Alert.alert('✅ Registrado', `${form.nombre_completo} fue registrado exitosamente.`, [{ text: 'OK', onPress: () => { setForm(INI); setSearchMuni(''); } }]);
+      const created = await beneficiariosApi.crear(form);
+      await AsyncStorage.removeItem(getDraftKey(tecnico?.id));
+      const offlineSaved = created.id.startsWith('local_');
+      Alert.alert(
+        offlineSaved ? 'Guardado localmente' : '✅ Registrado',
+        offlineSaved
+          ? `${form.nombre_completo} quedó guardado en el dispositivo y se sincronizará automáticamente al recuperar internet.`
+          : `${form.nombre_completo} fue registrado exitosamente.`,
+        [{ text: 'OK', onPress: () => { setForm({ ...INI, folio_saderh: generarFolio() }); setSearchMuni(''); } }],
+      );
     } catch (e: any) { Alert.alert('Error', e.message ?? 'No se pudo registrar'); }
     finally { setLoading(false); }
   };

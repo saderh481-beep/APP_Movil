@@ -161,6 +161,16 @@ const normalizeAsignacionFromBeneficiario = (beneficiario: Beneficiario, raw?: u
   };
 };
 
+const dedupeAsignaciones = (items: Asignacion[]): Asignacion[] => {
+  const unique = new Map<string, Asignacion>();
+  for (const item of items) {
+    const key = String(item.id_asignacion ?? item.id ?? '');
+    if (!key) continue;
+    unique.set(key, item);
+  }
+  return Array.from(unique.values());
+};
+
 export const API_CONFIG = {
   APP_API_URL: normalizeBaseUrl(process.env.EXPO_PUBLIC_APP_API_URL ?? DEFAULT_APP_API_URL),
   WEB_API_URL: normalizeBaseUrl(process.env.EXPO_PUBLIC_WEB_API_URL ?? DEFAULT_WEB_API_URL),
@@ -172,6 +182,7 @@ export const API_CONFIG = {
 export const KEYS = {
   TOKEN: '@saderh:token',
   USUARIO: '@saderh:usuario',
+  OFFLINE_AUTH: '@saderh:offline_auth',
   CONEXION: '@saderh:conexion',
   OFFLINE: '@saderh:offline_queue',
   BENEFICIARIOS_OFFLINE: '@saderh:beneficiarios_offline',
@@ -197,6 +208,12 @@ export interface PendingBeneficiarioUpload {
 }
 
 type ConnectionConfig = { appApiUrl?: string; modoDemo?: boolean };
+type OfflineAuthSession = {
+  codigo: string;
+  token: string;
+  tecnico: Usuario;
+  saved_at: string;
+};
 
 const runtime = {
   loaded: false,
@@ -205,6 +222,7 @@ const runtime = {
 };
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const normalizeAccessCode = (codigo: string) => codigo.replace(/\D/g, '').slice(0, 5);
 const getToken = async () => {
   try {
     console.log('[API] Intentando obtener token de AsyncStorage...');
@@ -215,6 +233,50 @@ const getToken = async () => {
   } catch (error) {
     console.error('Error obteniendo token de AsyncStorage:', error);
     return undefined;
+  }
+};
+
+const isLikelyNetworkError = (error: unknown): boolean => {
+  const msg = error instanceof Error ? error.message.toLowerCase() : String(error ?? '').toLowerCase();
+  return [
+    'network request failed',
+    'no se pudo conectar',
+    'tiempo de espera',
+    'timeout',
+    'fetch',
+    '503',
+    'conexión',
+    'internet',
+    'servidor',
+    'abort',
+  ].some((fragment) => msg.includes(fragment));
+};
+
+const saveOfflineAuthSession = async (codigo: string, token: string, tecnico: Usuario): Promise<void> => {
+  const payload: OfflineAuthSession = {
+    codigo: normalizeAccessCode(codigo),
+    token,
+    tecnico,
+    saved_at: nowIso(),
+  };
+  await AsyncStorage.setItem(KEYS.OFFLINE_AUTH, JSON.stringify(payload));
+};
+
+const getOfflineAuthSession = async (): Promise<OfflineAuthSession | null> => {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.OFFLINE_AUTH);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed)) return null;
+    if (typeof parsed.codigo !== 'string' || !isRecord(parsed.tecnico)) return null;
+    return {
+      codigo: normalizeAccessCode(parsed.codigo),
+      token: typeof parsed.token === 'string' && parsed.token ? parsed.token : 'offline-session',
+      tecnico: parsed.tecnico as unknown as Usuario,
+      saved_at: typeof parsed.saved_at === 'string' ? parsed.saved_at : nowIso(),
+    };
+  } catch {
+    return null;
   }
 };
 
@@ -273,10 +335,27 @@ const parseResponseBody = async (res: Response): Promise<unknown> => {
   }
 };
 
+const FALLBACK_REMOTE_SERVER_ERROR = 'El servidor remoto falló o no tiene desplegados los cambios más recientes.';
+
+const normalizeServerErrorMessage = (candidate: string): string => {
+  const trimmed = candidate.trim();
+  const normalized = trimmed.toLowerCase();
+  if (
+    normalized.includes('something went wrong') ||
+    normalized.includes('<html') ||
+    normalized.includes('<!doctype')
+  ) {
+    return FALLBACK_REMOTE_SERVER_ERROR;
+  }
+  return trimmed;
+};
+
 const extractError = (status: number, json: unknown): string => {
   if (isRecord(json)) {
     const candidate = json.error ?? json.message ?? (isRecord(json.data) ? json.data.error ?? json.data.message : undefined);
-    if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate;
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return normalizeServerErrorMessage(candidate);
+    }
   }
   return `Error ${status}`;
 };
@@ -361,10 +440,10 @@ async function httpWithRetry<T>(
         throw new Error('Recurso no encontrado. Verifica la conexión al servidor.');
       }
       if (res.status === 503) {
-        throw new Error('Servidor no disponible (503). Reintentando...');
+        throw new Error(serverError === `Error ${res.status}` ? 'Servidor no disponible (503). Reintentando...' : serverError);
       }
       if (res.status >= 500) {
-        throw new Error('Error del servidor. Intenta más tarde.');
+        throw new Error(serverError === `Error ${res.status}` ? 'Error del servidor. Intenta más tarde.' : serverError);
       }
       throw new Error(serverError);
     }
@@ -522,8 +601,23 @@ export const authApi = {
 
       // Registrar éxito
       recordLoginAttempt(codigo, true);
+      await saveOfflineAuthSession(codigo, token, tecnico);
       return { success: true, token, tecnico };
     } catch (e) {
+      if (isLikelyNetworkError(e)) {
+        const offlineSession = await getOfflineAuthSession();
+        const normalizedCodigo = normalizeAccessCode(codigo);
+        if (offlineSession && offlineSession.codigo === normalizedCodigo) {
+          recordLoginAttempt(codigo, true);
+          return {
+            success: true,
+            token: offlineSession.token || 'offline-session',
+            tecnico: offlineSession.tecnico,
+            offline: true,
+          };
+        }
+        throw new Error('Sin conexión y no existe una sesión local válida para este código en este dispositivo.');
+      }
       // Registrar intento fallido
       recordLoginAttempt(codigo, false);
       throw e;
@@ -603,7 +697,7 @@ export const asignacionesApi = {
       .map(raw => normalizeAsignacionFromBeneficiario(normalizeBeneficiario(raw), raw))
       .filter(a => a.id_asignacion && a.beneficiario?.id);
 
-    const asignaciones = [...beneficiarios, ...actividades];
+    const asignaciones = dedupeAsignaciones([...beneficiarios, ...actividades]);
     return { success: true, asignaciones, total: asignaciones.length };
   },
 };
@@ -664,11 +758,13 @@ export const beneficiariosApi = {
         activo: true,
       };
     } catch (error) {
+      if (!isNetworkError(error)) {
+        throw error;
+      }
       // Si hay error de red, guardar localmente para sincronizar después
       console.warn('[beneficiariosApi.crear] Error de red, guardando offline:', error instanceof Error ? error.message : 'error desconocido');
       
       // Guardar en cola offline
-      const offlineBeneficiarios = await offlineQueue.getPendingBeneficiarios();
       const nuevoBeneficiario = {
         local_id: `local_${Date.now()}`,
         created_at: new Date().toISOString(),
@@ -743,6 +839,7 @@ export const bitacorasApi = {
     const rec = isRecord(data) ? data : {};
     return {
       id: String(rec.id ?? ''),
+      id_bitacora: String(rec.id ?? ''),
       tipo: (rec.tipo ?? payload.tipo) as 'beneficiario' | 'actividad',
       estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
       tecnico_id: String(rec.tecnico_id ?? ''),
@@ -779,6 +876,7 @@ export const bitacorasApi = {
       const rec = isRecord(raw) ? raw : {};
       return {
         id: String(rec.id ?? ''),
+        id_bitacora: String(rec.id ?? ''),
         tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
         estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
         tecnico_id: String(rec.tecnico_id ?? ''),
@@ -805,6 +903,7 @@ export const bitacorasApi = {
     const rec = isRecord(data) ? data : {};
     return {
       id: String(rec.id ?? id),
+      id_bitacora: String(rec.id ?? id),
       tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
       estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
       tecnico_id: String(rec.tecnico_id ?? ''),
@@ -839,6 +938,7 @@ export const bitacorasApi = {
     const rec = isRecord(data) ? data : {};
     return {
       id: String(rec.id ?? id),
+      id_bitacora: String(rec.id ?? id),
       tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
       estado: String(rec.estado ?? 'borrador') as 'borrador' | 'cerrada',
       tecnico_id: String(rec.tecnico_id ?? ''),
@@ -874,6 +974,7 @@ export const bitacorasApi = {
     const rec = isRecord(data) ? data : {};
     return {
       id: String(rec.id ?? id),
+      id_bitacora: String(rec.id ?? id),
       tipo: String(rec.tipo ?? 'actividad') as 'beneficiario' | 'actividad',
       estado: 'cerrada',
       tecnico_id: String(rec.tecnico_id ?? ''),
@@ -936,6 +1037,76 @@ export const bitacorasApi = {
       message: String(rec.message ?? 'Bitácora eliminada'),
     };
   },
+};
+
+const cleanupPendingBitacoraFiles = async (item: PendingBitacoraUpload): Promise<void> => {
+  const uris = [item.foto_rostro_uri, item.firma_uri, ...item.fotos_campo_uris].filter(Boolean);
+  await Promise.all(
+    uris.map(async (uri) => {
+      try {
+        const info = await FileSystem.getInfoAsync(uri);
+        if (info.exists) {
+          await FileSystem.deleteAsync(uri, { idempotent: true });
+        }
+      } catch {
+        // Ignore cleanup failures.
+      }
+    }),
+  );
+};
+
+const getBitacoraId = (creada: unknown): string => {
+  const rec = isRecord(creada) ? creada : {};
+  const nested = isRecord(rec.data) ? rec.data : {};
+  const value = rec.id_bitacora ?? rec.id ?? nested.id_bitacora ?? nested.id;
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+};
+
+const buildBitacoraPatchFromPayload = (payload: Omit<Bitacora, 'id_bitacora'>): Partial<Bitacora> => ({
+  coord_inicio: payload.coord_inicio,
+  coord_fin: payload.coord_fin,
+  fecha_inicio: payload.fecha_inicio,
+  fecha_fin: payload.fecha_fin,
+  actividades_desc: payload.actividades_desc,
+  recomendaciones: payload.recomendaciones,
+  comentarios_beneficiario: payload.comentarios_beneficiario,
+  coordinacion_interinst: payload.coordinacion_interinst,
+  instancia_coordinada: payload.instancia_coordinada,
+  proposito_coordinacion: payload.proposito_coordinacion,
+  observaciones_coordinador: payload.observaciones_coordinador,
+  updated_at: payload.updated_at,
+});
+
+const syncPendingBitacora = async (item: PendingBitacoraUpload): Promise<void> => {
+  const payload = { ...item.payload };
+  const creada = await bitacorasApi.crear({
+    tipo: payload.tipo,
+    beneficiario_id: payload.tipo === 'beneficiario' ? payload.beneficiario_id ?? undefined : undefined,
+    cadena_productiva_id: payload.cadena_productiva_id ?? undefined,
+    actividad_id: payload.tipo === 'actividad' ? payload.actividad_id ?? undefined : undefined,
+    fecha_inicio: payload.fecha_inicio,
+    coord_inicio: payload.coord_inicio ?? undefined,
+    sync_id: item.local_id,
+  });
+  const idBitacora = getBitacoraId(creada);
+  if (!idBitacora) throw new Error(`La API no devolvió id de bitácora para ${item.local_id}`);
+
+  await bitacorasApi.editar(idBitacora, buildBitacoraPatchFromPayload(payload));
+  await bitacorasApi.subirFotoRostro(idBitacora, item.foto_rostro_uri);
+  await bitacorasApi.subirFirma(idBitacora, item.firma_uri);
+  if (item.fotos_campo_uris.length) {
+    await bitacorasApi.subirFotosCampo(idBitacora, item.fotos_campo_uris);
+  }
+  await bitacorasApi.cerrar(
+    idBitacora,
+    payload.fecha_fin || payload.coord_fin
+      ? {
+          fecha_fin: payload.fecha_fin ?? nowIso(),
+          coord_fin: payload.coord_fin ?? undefined,
+        }
+      : undefined,
+  );
+  await cleanupPendingBitacoraFiles(item);
 };
 
 // ── NOTIFICACIONES ────────────────────────────────────────
@@ -1087,8 +1258,25 @@ export const syncApi = {
     const rec = isRecord(data) ? data : (isRecord(json) ? json : {});
     return {
       sync_ts: String(rec.sync_ts ?? nowIso()),
-      beneficiarios: asArray<unknown>(rec.beneficiarios).map(b => normalizeBeneficiario(b)),
-      actividades: asArray<unknown>(rec.actividades).map(a => normalizeActividad(a)),
+      beneficiarios: asArray<unknown>(rec.beneficiarios).map((b) => {
+        const normalized = normalizeBeneficiario(b);
+        const raw = isRecord(b) ? b : {};
+        return {
+          ...normalized,
+          id_tecnico: toStringOrUndefined(raw.id_tecnico ?? raw.tecnico_id),
+        };
+      }),
+      actividades: asArray<unknown>(rec.actividades).map((a) => {
+        const normalized = normalizeActividad(a);
+        const raw = isRecord(a) ? a : {};
+        return {
+          ...normalized,
+          id_tecnico: toStringOrUndefined(raw.id_tecnico ?? raw.tecnico_id),
+          tecnico_id: toStringOrUndefined(raw.tecnico_id ?? raw.id_tecnico),
+          id_beneficiario: toStringOrUndefined(raw.id_beneficiario ?? raw.beneficiario_id),
+          beneficiario_id: toStringOrUndefined(raw.beneficiario_id ?? raw.id_beneficiario),
+        };
+      }),
       cadenas: asArray<unknown>(rec.cadenas).map(c => {
         const cadena = isRecord(c) ? c : {};
         return {
@@ -1125,16 +1313,19 @@ export const syncApi = {
       const bitacorasPendientes = await offlineQueue.getAllPendingBitacoras();
       if (bitacorasPendientes.length > 0) {
         console.log(`[syncApi] Sincronizando ${bitacorasPendientes.length} bitácoras...`);
+        const restantes: PendingBitacoraUpload[] = [];
         for (const bitacora of bitacorasPendientes) {
           try {
-            await http<unknown>('POST', '/bitacoras', bitacora.payload, token);
+            await syncPendingBitacora(bitacora);
             sincronizadas++;
           } catch (e) {
             const msg = e instanceof Error ? e.message : 'error desconocido';
             errores.push(`Bitácora ${bitacora.local_id}: ${msg}`);
             pendientes++;
+            restantes.push(bitacora);
           }
         }
+        await offlineQueue.replacePendingBitacoras(restantes);
       }
     } catch (e) {
       console.error('Error sincronizando bitácoras:', e);

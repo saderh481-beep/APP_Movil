@@ -110,30 +110,35 @@ export default function Login() {
       await new Promise(r => setTimeout(r, 300));
       
       // Verify connection and load inicial data
-      try {
-        const asigResp = await asignacionesApi.listar();
-        console.log(`Se cargaron ${asigResp.total} asignaciones`);
-      } catch (e) {
-        // Log del error pero no bloquear el login
-        const errMsg = e instanceof Error ? e.message : 'Error desconocido';
-        console.warn('Advertencia al cargar asignaciones:', errMsg);
-        
-        // Si es un error de autenticación después de login, algo está mal
-        if (errMsg.includes('Autenticación falló') || errMsg.includes('No autenticado')) {
-          console.error('ERROR CRÍTICO: Token rechazado inmediatamente después de login');
-          // Limpiar sesión y mostrar error
-          await clearAuth();
-          setErrorMessage('Error de autenticación. Por favor, intenta de nuevo.');
-          setStatus('error');
-          shake();
-          setCodigo('');
-          setTimeout(() => ref.current?.focus(), 300);
-          setLoading(false);
-          return;
+      if (!res.offline) {
+        try {
+          const asigResp = await asignacionesApi.listar();
+          console.log(`Se cargaron ${asigResp.total} asignaciones`);
+        } catch (e) {
+          // Log del error pero no bloquear el login
+          const errMsg = e instanceof Error ? e.message : 'Error desconocido';
+          console.warn('Advertencia al cargar asignaciones:', errMsg);
+          
+          // Si es un error de autenticación después de login, algo está mal
+          if (errMsg.includes('Autenticación falló') || errMsg.includes('No autenticado')) {
+            console.error('ERROR CRÍTICO: Token rechazado inmediatamente después de login');
+            // Limpiar sesión y mostrar error
+            await clearAuth();
+            setErrorMessage('Error de autenticación. Por favor, intenta de nuevo.');
+            setStatus('error');
+            shake();
+            setCodigo('');
+            setTimeout(() => ref.current?.focus(), 300);
+            setLoading(false);
+            return;
+          }
         }
       }
       
       setStatus('success');
+      if (res.offline) {
+        setErrorMessage('Modo offline: sesión local iniciada. Verás los datos guardados en este dispositivo.');
+      }
       
       setTimeout(() => {
         router.replace('/tabs/dashboard');

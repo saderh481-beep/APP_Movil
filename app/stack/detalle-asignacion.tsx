@@ -33,10 +33,14 @@ type Punto = { x: number; y: number };
 type Trazo = Punto[];
 const OFFLINE_DIR = `${FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? ''}offline-bitacoras`;
 const ASIG_CACHE_KEY = '@saderh:asignaciones_cache';
+const getAsignacionesCacheKey = (tecnicoId?: string) =>
+  `${ASIG_CACHE_KEY}:${tecnicoId ?? 'anon'}`;
+const getBitacoraDraftKey = (tecnicoId?: string, asignacionId?: string) =>
+  `@saderh:draft:bitacora:${tecnicoId ?? 'anon'}:${asignacionId ?? 'sin-asignacion'}`;
 const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
   if (!tecnicoId) return true;
   if (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '') return true;
-  return String(asignacion.id_tecnico) === String(tecnicoId);
+  return String(asignacion.id_tecnico).trim() === String(tecnicoId).trim();
 };
 
 const pathFromStroke = (stroke: Trazo): string => {
@@ -226,6 +230,21 @@ const persistForOffline = async (fromUri: string, prefix: string) => {
   return toUri;
 };
 
+const buildBitacoraTexts = (datos: DatosExtendidos) => {
+  const incidentType = datos.tipo_incidente?.trim();
+  const incidentDescription = datos.descripcion_incidente?.trim();
+  const observaciones = datos.observaciones?.trim();
+  const incidentSummary = [incidentType, incidentDescription].filter(Boolean).join(': ');
+  const actividadesDesc = incidentSummary || observaciones || 'Visita de verificación completada en aplicación móvil.';
+
+  return {
+    observacionesCoordinador: observaciones || undefined,
+    actividadesDesc,
+    recomendaciones: observaciones || undefined,
+    comentariosBeneficiario: incidentDescription || observaciones || undefined,
+  };
+};
+
 export default function DetalleAsignacion() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { tecnico, setOffline } = useAuthStore();
@@ -248,7 +267,20 @@ export default function DetalleAsignacion() {
   const [firmaOk, setFirmaOk] = useState(false);
   const [firmaStrokes, setFirmaStrokes] = useState<Trazo[]>([]);
   const [firmaKey, setFirmaKey] = useState(0);
+  const [startedAt, setStartedAt] = useState<string>(new Date().toISOString());
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const progress = useRef(new Animated.Value(0.33)).current;
+
+  const ensureGpsFix = async (): Promise<{ lat: number; lon: number } | null> => {
+    const permission = await Location.requestForegroundPermissionsAsync();
+    const granted = permission.status === 'granted';
+    setLocationPermissionGranted(granted);
+    if (!granted) return null;
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const nextGps = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    setGps(nextGps);
+    return nextGps;
+  };
 
   useEffect(() => {
     let active = true;
@@ -262,12 +294,13 @@ export default function DetalleAsignacion() {
         setAsig(visibles.find((a) => String(a.id_asignacion ?? a.id) === rawId || (!Number.isNaN(idNum) && String(a.id_asignacion ?? a.id) === String(idNum))) ?? null);
       } catch {
         try {
-          const rawCache = await AsyncStorage.getItem(ASIG_CACHE_KEY);
+          const rawCache = await AsyncStorage.getItem(getAsignacionesCacheKey(tecnico?.id));
           const parsed = rawCache ? JSON.parse(rawCache) : [];
           const arr = Array.isArray(parsed)
             ? (parsed as Asignacion[])
             : (Array.isArray(parsed?.data) ? parsed.data as Asignacion[] : []);
-          const found = arr.find((a) => String(a.id_asignacion ?? a.id) === rawId || (!Number.isNaN(idNum) && Number(a.id_asignacion) === idNum)) ?? null;
+          const visibles = arr.filter((a) => tecnicoMatches(a, tecnico?.id));
+          const found = visibles.find((a) => String(a.id_asignacion ?? a.id) === rawId || (!Number.isNaN(idNum) && Number(a.id_asignacion) === idNum)) ?? null;
           if (active) setAsig(found);
         } catch {
           if (active) setAsig(null);
@@ -278,7 +311,9 @@ export default function DetalleAsignacion() {
     };
     load();
     Location.requestForegroundPermissionsAsync().then(({ status }) => {
-      if (status === 'granted') {
+      const granted = status === 'granted';
+      if (active) setLocationPermissionGranted(granted);
+      if (granted) {
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
           .then((l) => active && setGps({ lat: l.coords.latitude, lon: l.coords.longitude }))
           .catch(() => {});
@@ -288,6 +323,60 @@ export default function DetalleAsignacion() {
       active = false;
     };
   }, [id, tecnico?.id]);
+
+  useEffect(() => {
+    let active = true;
+    const restoreDraft = async () => {
+      if (!tecnico?.id || !asig?.id_asignacion) return;
+      try {
+        const raw = await AsyncStorage.getItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion)));
+        if (!raw || !active) return;
+        const parsed = JSON.parse(raw) as {
+          datos?: DatosExtendidos;
+          fotosCampo?: string[];
+          fotoRostro?: string | null;
+          firmaStrokes?: Trazo[];
+          gps?: { lat: number; lon: number } | null;
+          startedAt?: string;
+        };
+        if (parsed.datos) setDatos((prev) => ({ ...prev, ...parsed.datos }));
+        if (Array.isArray(parsed.fotosCampo)) setFotosCampo(parsed.fotosCampo);
+        if (typeof parsed.fotoRostro === 'string' || parsed.fotoRostro === null) setFotoRostro(parsed.fotoRostro ?? null);
+        if (Array.isArray(parsed.firmaStrokes)) {
+          setFirmaStrokes(parsed.firmaStrokes);
+          setFirmaOk(parsed.firmaStrokes.length > 0);
+          setFirmaKey((k) => k + 1);
+        }
+        if (parsed.gps) setGps(parsed.gps);
+        if (parsed.startedAt) setStartedAt(parsed.startedAt);
+      } catch {
+        // Ignore malformed drafts.
+      }
+    };
+    restoreDraft();
+    return () => {
+      active = false;
+    };
+  }, [asig?.id_asignacion, tecnico?.id]);
+
+  useEffect(() => {
+    if (!tecnico?.id || !asig?.id_asignacion) return;
+    const timeout = setTimeout(() => {
+      AsyncStorage.setItem(
+        getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion)),
+        JSON.stringify({
+          startedAt,
+          gps,
+          datos,
+          fotoRostro,
+          fotosCampo,
+          firmaStrokes,
+          updated_at: new Date().toISOString(),
+        }),
+      ).catch(() => {});
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [asig?.id_asignacion, tecnico?.id, startedAt, gps, datos, fotoRostro, fotosCampo, firmaStrokes]);
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -355,6 +444,18 @@ export default function DetalleAsignacion() {
 
   const finalizar = async () => {
     if (!asig || !tecnico) return;
+    if (!locationPermissionGranted || !gps) {
+      try {
+        const freshGps = await ensureGpsFix();
+        if (!freshGps) {
+          Alert.alert('Ubicación requerida', 'Debes permitir la geolocalización y capturar tu ubicación para confirmar la visita con el beneficiario.');
+          return;
+        }
+      } catch {
+        Alert.alert('Ubicación requerida', 'No se pudo obtener la ubicación actual. Intenta nuevamente en el lugar de la visita.');
+        return;
+      }
+    }
     if (!fotoRostro) {
       Alert.alert('Foto requerida', 'Antes de firmar debes tomar foto del rostro del beneficiario.');
       return;
@@ -372,54 +473,78 @@ export default function DetalleAsignacion() {
     let firmaUri: string | null = null;
     try {
       const now = new Date().toISOString();
-      const payload: any = {
+      const currentGps = gps ?? await ensureGpsFix();
+      if (!currentGps) {
+        Alert.alert('Ubicación requerida', 'No se pudo validar tu ubicación para finalizar la visita.');
+        return;
+      }
+      const tipoAsignacion = (asig?.tipo_asignacion ?? 'actividad') as 'beneficiario' | 'actividad';
+      const cadenaProductivaId = asig?.beneficiario?.cadenas?.[0]?.id ?? undefined;
+      const {
+        observacionesCoordinador,
+        actividadesDesc,
+        recomendaciones,
+        comentariosBeneficiario,
+      } = buildBitacoraTexts(datos);
+      const payload: Omit<Bitacora, 'id_bitacora'> = {
         id: `movil-${Date.now()}`,
-        tipo: (asig?.tipo_asignacion ?? 'actividad') as 'beneficiario' | 'actividad',
+        tipo: tipoAsignacion,
         estado: 'borrador',
         tecnico_id: String(tecnico.id),
-        beneficiario_id: asig?.id_beneficiario ?? undefined,
-        cadena_productiva_id: undefined,
-        actividad_id: asig?.id_asignacion ?? undefined,
-        fecha_inicio: now,
-        coord_inicio: `${gps?.lat ?? 0},${gps?.lon ?? 0}`,
+        beneficiario_id: tipoAsignacion === 'beneficiario' ? asig?.id_beneficiario ?? undefined : undefined,
+        cadena_productiva_id: cadenaProductivaId,
+        actividad_id: tipoAsignacion === 'actividad' ? asig?.id_asignacion ?? undefined : undefined,
+        fecha_inicio: startedAt,
+        coord_inicio: `${currentGps.lat},${currentGps.lon}`,
+        fecha_fin: now,
+        coord_fin: `${currentGps.lat},${currentGps.lon}`,
         sincronizado: false,
-        created_at: now,
+        created_at: startedAt,
         updated_at: now,
         datos_extendidos: datos,
         calificacion: datos.calidad_servicio,
         reporte: datos.observaciones,
+        observaciones_coordinador: observacionesCoordinador,
+        actividades_desc: actividadesDesc,
+        recomendaciones,
+        comentarios_beneficiario: comentariosBeneficiario,
       };
 
       firmaUri = await crearArchivoFirma();
 
-      const online = await syncApi.healthCheck();
-      setOffline(!online);
-
-      if (!online) {
-        await guardarPendienteOffline(payload, firmaUri);
-        Alert.alert(
-          'Guardado en modo offline',
-          'La visita se guardó en el teléfono. Se sincronizará automáticamente cuando vuelva el internet.',
-          [{ text: 'Aceptar', onPress: () => router.back() }],
-        );
-        return;
-      }
-
       try {
         const creada = await bitacorasApi.crear({
           tipo: payload.tipo,
-          beneficiario_id: payload.beneficiario_id,
+          beneficiario_id: tipoAsignacion === 'beneficiario' ? payload.beneficiario_id ?? undefined : undefined,
           cadena_productiva_id: payload.cadena_productiva_id,
-          actividad_id: payload.actividad_id,
-          fecha_inicio: now,
+          actividad_id: tipoAsignacion === 'actividad' ? payload.actividad_id ?? undefined : undefined,
+          fecha_inicio: startedAt,
+          coord_inicio: `${currentGps.lat},${currentGps.lon}`,
         });
-        const idBitacora = (creada as any)?.id_bitacora ?? (creada as any)?.data?.id_bitacora;
+        const idBitacora =
+          (creada as any)?.id_bitacora ??
+          (creada as any)?.id ??
+          (creada as any)?.data?.id_bitacora ??
+          (creada as any)?.data?.id;
         if (!idBitacora) throw new Error('La API no devolvió id de bitácora.');
 
+        await bitacorasApi.editar(idBitacora, {
+          coord_inicio: payload.coord_inicio,
+          coord_fin: payload.coord_fin,
+          fecha_inicio: payload.fecha_inicio,
+          fecha_fin: payload.fecha_fin,
+          observaciones_coordinador: payload.observaciones_coordinador,
+          actividades_desc: payload.actividades_desc,
+          recomendaciones: payload.recomendaciones,
+          comentarios_beneficiario: payload.comentarios_beneficiario,
+          updated_at: payload.updated_at,
+        });
         await bitacorasApi.subirFotoRostro(idBitacora, fotoRostro);
         await bitacorasApi.subirFirma(idBitacora, firmaUri);
         if (fotosCampo.length) await bitacorasApi.subirFotosCampo(idBitacora, fotosCampo);
-        await bitacorasApi.cerrar(idBitacora);
+        await bitacorasApi.cerrar(idBitacora, { fecha_fin: now, coord_fin: `${currentGps.lat},${currentGps.lon}` });
+        setOffline(false);
+        await AsyncStorage.removeItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion ?? id)));
 
         Alert.alert('Visita completada', 'Se guardó bitácora, validación de rostro y firma.', [
           { text: 'Finalizar', onPress: () => router.back() },
@@ -428,6 +553,7 @@ export default function DetalleAsignacion() {
         if (syncApi.isNetworkError(e)) {
           setOffline(true);
           await guardarPendienteOffline(payload as any, firmaUri);
+          await AsyncStorage.removeItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion ?? id)));
           Alert.alert(
             'Guardado en modo offline',
             'Se perdió conexión durante el envío. La visita quedó guardada y se sincronizará automáticamente.',

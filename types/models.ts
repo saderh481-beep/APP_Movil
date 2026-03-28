@@ -174,6 +174,7 @@ export interface AuthResponse {
   success: boolean;
   token: string;
   tecnico: Usuario;
+  offline?: boolean;
 }
 
 export interface ApiResponse<T = unknown> {

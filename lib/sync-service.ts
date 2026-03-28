@@ -5,7 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { KEYS, offlineQueue, API_CONFIG } from './api';
+import { KEYS, offlineQueue, API_CONFIG, syncApi } from './api';
 import { FileManager, getSubdirectory } from './file-manager';
 import { PendingBitacoraUpload } from './api';
 
@@ -344,17 +344,18 @@ export const syncAll = async (): Promise<SyncResult> => {
     }
     
     console.log('[SYNC] Iniciando sincronización...');
-    
-    // Sincronizar bitácoras
-    const bitacoraResult = await syncAllPendingBitacoras(token);
+    const pendingBefore = await offlineQueue.countPendingBitacoras();
+    const pendingBenefBefore = (await offlineQueue.getPendingBeneficiarios()).length;
+    const result = await syncApi.sincronizarPendientes();
     
     // Actualizar estado
     const pendingCount = await offlineQueue.countPendingBitacoras();
+    const pendingBenef = (await offlineQueue.getPendingBeneficiarios()).length;
     const state = await getSyncState();
     state.lastSync = new Date().toISOString();
-    state.pendingUploads = pendingCount;
-    state.lastError = bitacoraResult.errores.length > 0 
-      ? bitacoraResult.errores.join('; ') 
+    state.pendingUploads = pendingCount + pendingBenef;
+    state.lastError = result.errores.length > 0 
+      ? result.errores.join('; ') 
       : null;
     state.isOnline = true;
     state.isSyncing = false;
@@ -362,14 +363,14 @@ export const syncAll = async (): Promise<SyncResult> => {
     await saveSyncState(state);
     
     const duration = Date.now() - startTime;
-    console.log(`[SYNC] Sincronización completada en ${duration}ms. ${bitacoraResult.sincronizados} sincronizadas.`);
+    console.log(`[SYNC] Sincronización completada en ${duration}ms. ${result.sincronizadas} sincronizadas.`);
     
     return {
-      success: bitacoraResult.errores.length === 0,
-      syncedCount: bitacoraResult.sincronizados,
-      failedCount: bitacoraResult.errores.length,
-      error: bitacoraResult.errores.length > 0 
-        ? bitacoraResult.errores.join('; ') 
+      success: result.errores.length === 0,
+      syncedCount: (pendingBefore + pendingBenefBefore) - (pendingCount + pendingBenef),
+      failedCount: result.errores.length,
+      error: result.errores.length > 0 
+        ? result.errores.join('; ') 
         : undefined,
       timestamp: new Date().toISOString(),
     };
