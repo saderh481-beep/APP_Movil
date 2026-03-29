@@ -3,3 +3,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+  
+# Prevenir repositorios Git anidados en directorios temporales  
+_tmp_campo_api_app/.git  
+_tmp_campo_api_web/.git 

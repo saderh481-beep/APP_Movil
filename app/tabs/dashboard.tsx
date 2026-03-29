@@ -93,6 +93,7 @@ export default function Dashboard() {
   const [errorMsg, setErrorMsg] = useState('');
   const [pendientes, setPendientes] = useState(0);
   const [queueFillPercent, setQueueFillPercent] = useState(0);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'warning' | 'error'>('synced');
 
   const syncPendientes = useCallback(async () => {
     const count = await offlineQueue.countPendingBitacoras();
@@ -102,8 +103,20 @@ export default function Dashboard() {
     const fillPercentage = await offlineQueue.getQueueFillPercentage();
     setQueueFillPercent(fillPercentage);
     
+    // Actualizar estado visual basado en cantidad de pendientes
+    if (count === 0) {
+      setSyncStatus('synced');
+    } else if (count <= 5) {
+      setSyncStatus('pending');
+    } else if (count <= 10) {
+      setSyncStatus('warning');
+    } else {
+      setSyncStatus('error');
+    }
+    
     if (fillPercentage > 80) {
       console.warn(`⚠️ Offline queue ${fillPercentage.toFixed(0)}% llena!`);
+      setSyncStatus('error');
     }
     
     if (!count) return 0;
@@ -111,6 +124,18 @@ export default function Dashboard() {
     const r = await syncApi.sincronizarPendientes();
     const remaining = await offlineQueue.countPendingBitacoras();
     setPendientes(remaining);
+    
+    // Actualizar estado después de sincronizar
+    if (remaining === 0) {
+      setSyncStatus('synced');
+    } else if (remaining <= 5) {
+      setSyncStatus('pending');
+    } else if (remaining <= 10) {
+      setSyncStatus('warning');
+    } else {
+      setSyncStatus('error');
+    }
+    
     return r.sincronizadas ?? 0;
   }, []);
 
@@ -336,6 +361,9 @@ export default function Dashboard() {
         <View style={s.hR}>
           {isOffline && <View style={s.offBadge}><Text style={s.offBadgeT}>OFFLINE</Text></View>}
           {pendientes > 0 && <View style={s.pendBadge}><Text style={s.pendBadgeT}>PEND {pendientes}</Text></View>}
+          <View style={[s.syncBadge, s[`syncBadge${syncStatus.charAt(0).toUpperCase() + syncStatus.slice(1)}`]]}>
+            <Text style={s.syncBadgeT}>{syncStatus === 'synced' ? '✓' : syncStatus === 'pending' ? '⏳' : '⚠'}</Text>
+          </View>
           <View style={s.cnt}>
             <Text style={s.cntN}>{grp.hoy.length}</Text>
             <Text style={s.cntL}>hoy</Text>
@@ -358,6 +386,24 @@ export default function Dashboard() {
             </TouchableOpacity>
           )}
         </View>
+      </View>
+
+      {/* Tarjeta de estado de sincronización */}
+      <View style={s.syncStatusCard}>
+        <View style={s.syncStatusRow}>
+          <View style={[s.syncStatusDot, s[`syncDot${syncStatus.charAt(0).toUpperCase() + syncStatus.slice(1)}`]]} />
+          <Text style={s.syncStatusText}>
+            {syncStatus === 'synced' && '✓ Todo sincronizado'}
+            {syncStatus === 'pending' && `⏳ ${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`}
+            {syncStatus === 'warning' && `⚠️ ${pendientes} pendientes - Sincroniza pronto`}
+            {syncStatus === 'error' && `🔴 ${pendientes} pendientes - Cola llena`}
+          </Text>
+        </View>
+        {pendientes > 0 && (
+          <Text style={s.syncStatusSubtext}>
+            Se sincroniza automáticamente al reconectar
+          </Text>
+        )}
       </View>
 
       {/* Alerta de capacidad offline llena */}
@@ -435,6 +481,16 @@ const s = StyleSheet.create({
   offBadgeT: { fontSize: 9, fontWeight: '800', color: Colors.white, letterSpacing: 1 },
   pendBadge: { backgroundColor: Colors.info, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   pendBadgeT: { fontSize: 9, fontWeight: '800', color: Colors.white, letterSpacing: 1 },
+  syncBadge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  syncBadgeT: { fontSize: 9, fontWeight: '800', color: Colors.white, letterSpacing: 1 },
+  syncBadgeSynced: { backgroundColor: Colors.success },
+  syncBadgePending: { backgroundColor: Colors.warning },
+  syncBadgeWarning: { backgroundColor: Colors.danger },
+  syncBadgeError: { backgroundColor: Colors.danger },
+  syncDotSynced: { backgroundColor: Colors.success },
+  syncDotPending: { backgroundColor: Colors.warning },
+  syncDotWarning: { backgroundColor: Colors.danger },
+  syncDotError: { backgroundColor: Colors.danger },
   cnt: { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6, alignItems: 'center', minWidth: 52 },
   cntN: { fontSize: 24, fontWeight: '900', color: Colors.white, lineHeight: 28 },
   cntL: { fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: '600' },
@@ -479,6 +535,25 @@ const s = StyleSheet.create({
     borderColor: Colors.danger + '33',
   },
   errorCardT: { color: Colors.danger, fontSize: 12, fontWeight: '600' },
+  syncStatusCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  syncStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: 14, padding: 14, marginBottom: 10, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
   cardDone: { opacity: 0.5 },
   av: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -500,4 +575,15 @@ const s = StyleSheet.create({
   emptyD: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', maxWidth: 280, lineHeight: 20 },
   alertCapacity: { backgroundColor: Colors.warning + '20', borderTopWidth: 2, borderTopColor: Colors.warning, paddingHorizontal: 16, paddingVertical: 10 },
   alertCapacityText: { fontSize: 12, color: Colors.textPrimary, fontWeight: '600', lineHeight: 18 },
+  syncStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  syncStatusSubtext: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
 });
