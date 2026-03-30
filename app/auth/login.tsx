@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { asignacionesApi, authApi } from '@/lib/api';
+import { authApi } from '@/lib/api';
 import { Validators } from '@/lib/validators';
 import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
@@ -108,32 +108,6 @@ export default function Login() {
       
       // Esperar a que AsyncStorage confirme escritura (problema de sincronización)
       await new Promise(r => setTimeout(r, 300));
-      
-      // Verify connection and load inicial data
-      if (!res.offline) {
-        try {
-          const asigResp = await asignacionesApi.listar();
-          console.log(`Se cargaron ${asigResp.total} asignaciones`);
-        } catch (e) {
-          // Log del error pero no bloquear el login
-          const errMsg = e instanceof Error ? e.message : 'Error desconocido';
-          console.warn('Advertencia al cargar asignaciones:', errMsg);
-          
-          // Si es un error de autenticación después de login, algo está mal
-          if (errMsg.includes('Autenticación falló') || errMsg.includes('No autenticado')) {
-            console.error('ERROR CRÍTICO: Token rechazado inmediatamente después de login');
-            // Limpiar sesión y mostrar error
-            await clearAuth();
-            setErrorMessage('Error de autenticación. Por favor, intenta de nuevo.');
-            setStatus('error');
-            shake();
-            setCodigo('');
-            setTimeout(() => ref.current?.focus(), 300);
-            setLoading(false);
-            return;
-          }
-        }
-      }
       
       setStatus('success');
       if (res.offline) {

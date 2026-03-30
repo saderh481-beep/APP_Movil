@@ -3,7 +3,6 @@ import { BITACORAS_CERRADAS_CACHE_KEY } from '@/constants/CacheKeys';
 import { fontSize, radius, rh, rw } from '@/lib/responsive';
 import { asignacionesApi, bitacorasApi, offlineQueue, syncApi } from '@/lib/api';
 import { cleanUuid } from '@/lib/uuid-utils';
-import { TIPOS_INCIDENTE } from '@/lib/demoData';
 import { useAuthStore } from '@/store/authStore';
 import { Asignacion, Beneficiario, Bitacora, DatosExtendidos } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -677,19 +676,13 @@ export default function DetalleAsignacion() {
               {datos.hay_incidentes && (
                 <>
                   <Text style={s.label}>Tipo de incidente</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: rh(10) }}>
-                    <View style={s.row}>
-                      {TIPOS_INCIDENTE.map((item) => (
-                        <TouchableOpacity
-                          key={item}
-                          style={[s.pillBtn, datos.tipo_incidente === item && s.pillBtnOn]}
-                          onPress={() => setDato('tipo_incidente', item)}
-                        >
-                          <Text style={[s.pillText, datos.tipo_incidente === item && s.pillTextOn]}>{item}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
+                  <TextInput
+                    style={[s.inputArea, {minHeight: rh(50), marginBottom: rh(10), fontSize: fontSize.sm}]}
+                    value={datos.tipo_incidente}
+                    onChangeText={(v) => setDato('tipo_incidente', v)}
+                    placeholder="Escribe tipo de incidente (ej: Plagas, Sequía...)"
+                    placeholderTextColor={Colors.gray400}
+                  />
                   <TextInput
                     style={s.inputArea}
                     value={datos.descripcion_incidente}

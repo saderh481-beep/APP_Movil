@@ -1,7 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
 import { beneficiariosApi, localidadesApi } from '@/lib/api';
-import { MUNICIPIOS_HIDALGO } from '@/lib/demoData';
 import { useAuthStore } from '@/store/authStore';
 import { CrearBeneficiarioPayload, Localidad } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -143,7 +142,7 @@ export default function AltaBeneficiario() {
     finally { setLoading(false); }
   };
 
-  const munis = MUNICIPIOS_HIDALGO.filter(m => m.toLowerCase().includes(searchMuni.toLowerCase()));
+
 
   return (
     <SafeAreaView style={s.cont} edges={['top']}>
@@ -165,23 +164,8 @@ export default function AltaBeneficiario() {
           </View>
 
           <View style={s.sec}><Text style={s.secT}>📍 Ubicación</Text>
-            <Text style={s.lbl}>Municipio *</Text>
-            <TouchableOpacity style={s.sel} onPress={() => { setShowMunis(!showMunis); }}>
-              <Text style={[s.selT, !form.municipio && s.ph]}>{form.municipio || 'Seleccionar municipio...'}</Text>
-              <Text style={s.arr}>{showMunis ? '▲' : '▼'}</Text>
-            </TouchableOpacity>
-            {showMunis && (
-              <View style={s.drop}>
-                <TextInput style={s.dropS} value={searchMuni} onChangeText={setSearchMuni} placeholder="Buscar municipio..." placeholderTextColor={Colors.gray400} />
-                <ScrollView style={{ maxHeight: 190 }} nestedScrollEnabled>
-                  {munis.map(m => (
-                    <TouchableOpacity key={m} style={[s.dropI, form.municipio === m && s.dropIA]} onPress={() => { set('municipio', m); setShowMunis(false); setSearchMuni(''); }}>
-                      <Text style={[s.dropIT, form.municipio === m && s.dropITA]}>{m}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+<Text style={s.lbl}>Municipio *</Text>
+            <TextInput style={s.inp} value={form.municipio} onChangeText={v => set('municipio', v)} placeholder="Escribe nombre del municipio" placeholderTextColor={Colors.gray400} />
             <Text style={s.lbl}>Localidad / Ejido *</Text>
             <TouchableOpacity style={s.sel} onPress={() => { setShowLocalidades(!showLocalidades); }}>
               <Text style={[s.selT, !form.localidad && s.ph]}>{form.localidad || 'Seleccionar localidad...'}</Text>
