@@ -1,6 +1,8 @@
 import { Colors } from '@/constants/Colors';
+import { BITACORAS_CERRADAS_CACHE_KEY } from '@/constants/CacheKeys';
 import { fontSize, radius, rh, rw } from '@/lib/responsive';
 import { asignacionesApi, bitacorasApi, offlineQueue, syncApi } from '@/lib/api';
+import { cleanUuid } from '@/lib/uuid-utils';
 import { TIPOS_INCIDENTE } from '@/lib/demoData';
 import { useAuthStore } from '@/store/authStore';
 import { Asignacion, Beneficiario, Bitacora, DatosExtendidos } from '@/types/models';
@@ -479,7 +481,23 @@ export default function DetalleAsignacion() {
         return;
       }
       const tipoAsignacion = (asig?.tipo_asignacion ?? 'actividad') as 'beneficiario' | 'actividad';
-      const cadenaProductivaId = asig?.beneficiario?.cadenas?.[0]?.id ?? undefined;
+
+      const beneficiarioId = cleanUuid(asig?.id_beneficiario ?? asig?.beneficiario?.id ?? asig?.beneficiario?.id_beneficiario);
+      const actividadId = cleanUuid(
+        tipoAsignacion === 'actividad'
+          ? (asig?.id_asignacion ?? asig?.id)
+          : undefined
+      );
+      const cadenaProductivaId = cleanUuid(asig?.beneficiario?.cadenas?.[0]?.id);
+
+      if (tipoAsignacion === 'beneficiario' && !beneficiarioId) {
+        Alert.alert('Error de datos', 'No se encontró el ID del beneficiario. Por favor regresa y vuelve a intentarlo.');
+        return;
+      }
+      if (tipoAsignacion === 'actividad' && !actividadId) {
+        Alert.alert('Error de datos', 'No se encontró el ID de la actividad. Por favor regresa y vuelve a intentarlo.');
+        return;
+      }
       const {
         observacionesCoordinador,
         actividadesDesc,
@@ -491,9 +509,9 @@ export default function DetalleAsignacion() {
         tipo: tipoAsignacion,
         estado: 'borrador',
         tecnico_id: String(tecnico.id),
-        beneficiario_id: tipoAsignacion === 'beneficiario' ? asig?.id_beneficiario ?? undefined : undefined,
+        beneficiario_id: tipoAsignacion === 'beneficiario' ? beneficiarioId : undefined,
         cadena_productiva_id: cadenaProductivaId,
-        actividad_id: tipoAsignacion === 'actividad' ? asig?.id_asignacion ?? undefined : undefined,
+        actividad_id: tipoAsignacion === 'actividad' ? actividadId : undefined,
         fecha_inicio: startedAt,
         coord_inicio: `${currentGps.lat},${currentGps.lon}`,
         fecha_fin: now,
@@ -515,9 +533,9 @@ export default function DetalleAsignacion() {
       try {
         const creada = await bitacorasApi.crear({
           tipo: payload.tipo,
-          beneficiario_id: tipoAsignacion === 'beneficiario' ? payload.beneficiario_id ?? undefined : undefined,
-          cadena_productiva_id: payload.cadena_productiva_id,
-          actividad_id: tipoAsignacion === 'actividad' ? payload.actividad_id ?? undefined : undefined,
+          beneficiario_id: tipoAsignacion === 'beneficiario' ? beneficiarioId : undefined,
+          cadena_productiva_id: cadenaProductivaId,
+          actividad_id: tipoAsignacion === 'actividad' ? actividadId : undefined,
           fecha_inicio: startedAt,
           coord_inicio: `${currentGps.lat},${currentGps.lon}`,
         });
@@ -545,6 +563,7 @@ export default function DetalleAsignacion() {
         await bitacorasApi.cerrar(idBitacora, { fecha_fin: now, coord_fin: `${currentGps.lat},${currentGps.lon}` });
         setOffline(false);
         await AsyncStorage.removeItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion ?? id)));
+        await AsyncStorage.removeItem(BITACORAS_CERRADAS_CACHE_KEY);
 
         Alert.alert('Visita completada', 'Se guardó bitácora, validación de rostro y firma.', [
           { text: 'Finalizar', onPress: () => router.back() },

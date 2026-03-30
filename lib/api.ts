@@ -866,6 +866,29 @@ export const bitacorasApi = {
     };
   },
 
+  /** GET /bitacoras/cerradas */
+  async listarCerradas(): Promise<Array<{ id: string; tipo: string; beneficiario_id?: string; actividad_id?: string; estado: string }>> {
+    try {
+      const token = await getToken();
+      const json = await http<unknown>('GET', '/bitacoras/cerradas', undefined, token);
+      const data = unwrapData(json);
+      const arr = asArray<unknown>(isRecord(data) && data.bitacoras ? data.bitacoras : data);
+      return arr.map(raw => {
+        const rec = isRecord(raw) ? raw : {};
+        return {
+          id: String(rec.id ?? ''),
+          tipo: String(rec.tipo ?? 'actividad'),
+          beneficiario_id: rec.beneficiario_id ? String(rec.beneficiario_id) : undefined,
+          actividad_id: rec.actividad_id ? String(rec.actividad_id) : undefined,
+          estado: String(rec.estado ?? 'cerrada'),
+        };
+      }).filter(b => b.id);
+    } catch (error) {
+      console.error('Error al obtener bitácoras cerradas:', error);
+      throw new Error('No se pudieron obtener las bitácoras cerradas');
+    }
+  },
+
   /** GET /bitacoras */
   async listar(): Promise<Bitacora[]> {
     const token = await getToken();

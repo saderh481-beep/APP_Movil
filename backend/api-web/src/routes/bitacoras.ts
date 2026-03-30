@@ -26,25 +26,27 @@ app.get(
       anio: z.coerce.number().int().min(1900).max(3000).optional(),
       estado: z.string().max(40).optional(),
       tipo: z.string().max(80).optional(),
+      limit: z.coerce.number().int().min(1).max(1000).optional().default(100),
+      offset: z.coerce.number().int().min(0).optional().default(0),
     })
   ),
   async (c) => {
     const user = c.get("user");
-    const { tecnico_id, mes, anio, estado, tipo } = c.req.valid("query");
+    const { tecnico_id, mes, anio, estado, tipo, limit, offset } = c.req.valid("query");
 
     const condiciones: string[] = [];
     const params: Array<string | number> = [];
     let i = 1;
 
     if (user.rol === "coordinador") {
-      condiciones.push(`td.coordinador_id = $${i++}`);
+      condiciones.push(`td.coordinador_id = ${i++}`);
       params.push(user.sub);
     }
-    if (tecnico_id) { condiciones.push(`b.tecnico_id = $${i++}`); params.push(tecnico_id); }
-    if (mes) { condiciones.push(`EXTRACT(MONTH FROM b.fecha_inicio) = $${i++}`); params.push(mes); }
-    if (anio) { condiciones.push(`EXTRACT(YEAR FROM b.fecha_inicio) = $${i++}`); params.push(anio); }
-    if (estado) { condiciones.push(`b.estado = $${i++}`); params.push(estado); }
-    if (tipo) { condiciones.push(`b.tipo = $${i++}`); params.push(tipo); }
+    if (tecnico_id) { condiciones.push(`b.tecnico_id = ${i++}`); params.push(tecnico_id); }
+    if (mes) { condiciones.push(`EXTRACT(MONTH FROM b.fecha_inicio) = ${i++}`); params.push(mes); }
+    if (anio) { condiciones.push(`EXTRACT(YEAR FROM b.fecha_inicio) = ${i++}`); params.push(anio); }
+    if (estado) { condiciones.push(`b.estado = ${i++}`); params.push(estado); }
+    if (tipo) { condiciones.push(`b.tipo = ${i++}`); params.push(tipo); }
 
     const where = condiciones.length ? `WHERE ${condiciones.join(" AND ")}` : "";
 
@@ -60,11 +62,10 @@ app.get(
        LEFT JOIN beneficiarios be ON be.id = b.beneficiario_id
        LEFT JOIN cadenas_productivas cp ON cp.id = b.cadena_productiva_id
        LEFT JOIN actividades a ON a.id = b.actividad_id
-       LEFT JOIN usuarios u ON u.id = td.coordinador_id
        ${where}
        ORDER BY b.fecha_inicio DESC
-       LIMIT 100`,
-      params
+       LIMIT ${i++} OFFSET ${i++}`,
+      [...params, limit, offset]
     );
     return c.json(bitacoras);
   }

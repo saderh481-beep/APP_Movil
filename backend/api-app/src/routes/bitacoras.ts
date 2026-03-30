@@ -264,6 +264,27 @@ app.post(
   }
 );
 
+app.get("/cerradas", async (c) => {
+  const tecnico = c.get("tecnico");
+  if (!tecnico) return c.json({ error: "No autenticado" }, 401);
+  
+  const limitParam = c.req.query('limit');
+  const offsetParam = c.req.query('offset');
+  
+  const limit = Math.min(Math.max(parseInt(limitParam || '100') || 100, 1), 1000);
+  const offset = Math.max(parseInt(offsetParam || '0') || 0, 0);
+  
+  const bitacoras = await sql`
+    SELECT id, tipo, beneficiario_id, actividad_id, estado
+    FROM bitacoras
+    WHERE tecnico_id = ${tecnico.sub}
+      AND estado = 'cerrada'
+    ORDER BY updated_at DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `;
+  return c.json(bitacoras);
+});
+
 app.delete("/:id", async (c) => {
   const tecnico = c.get("tecnico");
   const { id } = c.req.param();

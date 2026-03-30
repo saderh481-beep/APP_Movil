@@ -1,24 +1,33 @@
 import { Colors } from '@/constants/Colors';
+import { ASIG_CACHE_KEY, LAST_SYNC_TIME_KEY, CACHE_VALIDITY_MS, BITACORAS_CERRADAS_CACHE_KEY, BITACORAS_CERRADAS_TTL } from '@/constants/CacheKeys';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { asignacionesApi, offlineQueue, syncApi } from '@/lib/api';
+import { asignacionesApi, bitacorasApi, offlineQueue, syncApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { Asignacion } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, RefreshControl, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const PC: Record<string, string> = { ALTA: Colors.danger, MEDIA: Colors.warning, BAJA: Colors.success };
 const TC: Record<string, string> = { BENEFICIARIO: '#7c3aed', ACTIVIDAD: '#0891b2' };
+
+const getEstadoBitacoraColor = (item: Asignacion): string => {
+  if (item.completado) return Colors.success;
+  if (item.fecha_limite) {
+    const hoy = new Date();
+    hoy.setUTCHours(0, 0, 0, 0);
+    const limite = new Date(item.fecha_limite);
+    limite.setUTCHours(0, 0, 0, 0);
+    if (limite.getTime() < hoy.getTime()) return Colors.danger;
+  }
+  return Colors.warning;
+};
 const fmt = (d: Date) => d.toISOString().split('T')[0];
 const fmtL = (d: Date) => d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' });
-const ASIG_CACHE_KEY = '@saderh:asignaciones_cache';
-const LAST_SYNC_TIME_KEY = '@saderh:last_sync_time';
-const CACHE_VALIDITY_MS = 30 * 60 * 1000; // 30 minutos
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -95,6 +104,8 @@ export default function Dashboard() {
   const [queueFillPercent, setQueueFillPercent] = useState(0);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'warning' | 'error'>('synced');
 
+  const pendientesAsigs = useMemo(() => asigs.filter(a => !a.completado).length, [asigs]);
+
   const syncPendientes = useCallback(async () => {
     const count = await offlineQueue.countPendingBitacoras();
     setPendientes(count);
@@ -167,7 +178,8 @@ export default function Dashboard() {
           if (cacheEntry) {
             const parsed = JSON.parse(cacheEntry) as { data: Asignacion[]; timestamp: number };
             if (Array.isArray(parsed.data)) {
-              setAsigs(parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id)));
+              const offlineData = parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id));
+              setAsigs(offlineData);
               setErrorMsg('📱 Offline: mostrando datos guardados localmente.');
             }
           }
@@ -179,6 +191,27 @@ export default function Dashboard() {
       
       // Online - sincronizar pendientes PRIMERO
       await syncPendientes();
+      
+      // Obtener bitácoras cerradas para actualizar estado de completado (con caché)
+      let bitacorasCerradas: Array<{ id: string; tipo: string; beneficiario_id?: string; actividad_id?: string }> = [];
+      try {
+        const cachedCerradas = await AsyncStorage.getItem(BITACORAS_CERRADAS_CACHE_KEY);
+        if (cachedCerradas) {
+          const { data, timestamp } = JSON.parse(cachedCerradas);
+          if (Date.now() - timestamp < BITACORAS_CERRADAS_TTL) {
+            bitacorasCerradas = data;
+          }
+        }
+        if (!bitacorasCerradas.length) {
+          bitacorasCerradas = await bitacorasApi.listarCerradas();
+          await AsyncStorage.setItem(BITACORAS_CERRADAS_CACHE_KEY, JSON.stringify({
+            data: bitacorasCerradas,
+            timestamp: Date.now()
+          }));
+        }
+      } catch (e) {
+        console.warn('Error obteniendo bitácoras cerradas:', e);
+      }
       
       // Obtener último timestamp de sincronización
       const lastSyncTime = await AsyncStorage.getItem(lastSyncTimeKey);
@@ -225,11 +258,23 @@ export default function Dashboard() {
       // Filtrar por técnico
       const filtered = merged.filter((a) => tecnicoMatches(a, tecnico?.id));
       
-      setAsigs(filtered);
+      // Actualizar estado de completado basado en bitácoras cerradas
+      const filteredWithCompletion = filtered.map(asig => {
+        const tieneCerrada = bitacorasCerradas.some(bc => {
+          if (asig.tipo_asignacion === 'beneficiario') {
+            return bc.tipo === 'beneficiario' && bc.beneficiario_id === asig.id_beneficiario;
+          } else {
+            return bc.tipo === 'actividad' && bc.actividad_id === asig.id_asignacion;
+          }
+        });
+        return { ...asig, completado: tieneCerrada };
+      });
       
-      // Guardar caché con metadata
+      setAsigs(filteredWithCompletion);
+      
+      // Guardar caché con metadata (incluyendo estado de completado)
       await AsyncStorage.setItem(asignacionesCacheKey, JSON.stringify({
-        data: filtered,
+        data: filteredWithCompletion,
         timestamp: Date.now(),
         version: 1
       }));
@@ -249,7 +294,8 @@ export default function Dashboard() {
           const isCacheValid = cacheAge < CACHE_VALIDITY_MS;
           
           if (Array.isArray(parsed.data)) {
-            setAsigs(parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id)));
+            const cachedData = parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id));
+            setAsigs(cachedData);
             const ageStr = isCacheValid ? `hace ${Math.round(cacheAge / 60000)}m` : 'cache expirado';
             setErrorMsg(isNetworkErr 
               ? `📡 Sin conexión: datos locales (${ageStr}).` 
@@ -326,7 +372,7 @@ export default function Dashboard() {
           {!!item.descripcion_actividad && <Text style={s.desc} numberOfLines={1}>{item.descripcion_actividad}</Text>}
         </View>
         <View style={s.right}>
-          <View style={[s.pdot, { backgroundColor: PC[item.prioridad ?? 'MEDIA'] ?? Colors.gray500 }]} />
+          <View style={[s.pdot, { backgroundColor: getEstadoBitacoraColor(item) }]} />
           <Text style={s.chev}>{item.completado ? '✅' : '›'}</Text>
         </View>
       </TouchableOpacity>
@@ -365,8 +411,8 @@ export default function Dashboard() {
             <Text style={s.syncBadgeT}>{syncStatus === 'synced' ? '✓' : syncStatus === 'pending' ? '⏳' : '⚠'}</Text>
           </View>
           <View style={s.cnt}>
-            <Text style={s.cntN}>{grp.hoy.length}</Text>
-            <Text style={s.cntL}>hoy</Text>
+            <Text style={s.cntN}>{pendientesAsigs}</Text>
+            <Text style={s.cntL}>pendientes</Text>
           </View>
         </View>
       </View>
