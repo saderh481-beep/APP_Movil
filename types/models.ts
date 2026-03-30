@@ -59,6 +59,18 @@ export interface Actividad {
   updated_at: string;
 }
 
+export interface Localidad {
+  id: string;
+  municipio: string;
+  nombre: string;
+  cp?: string | null;
+  activo: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  zona_id?: string | null;
+}
+
 /** Tipo legado: usamos Actividad como Asignacion para compatibilidad */
 export type Asignacion = Actividad & {
   id_asignacion?: string;

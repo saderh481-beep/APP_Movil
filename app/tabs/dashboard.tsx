@@ -320,7 +320,7 @@ export default function Dashboard() {
   useEffect(() => {
     const t = setInterval(() => {
       cargar().catch(() => {});
-    }, 10_000);
+    }, 30_000);
     return () => clearInterval(t);
   }, [cargar]);
 

@@ -1,9 +1,9 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { beneficiariosApi } from '@/lib/api';
+import { beneficiariosApi, localidadesApi } from '@/lib/api';
 import { MUNICIPIOS_HIDALGO } from '@/lib/demoData';
 import { useAuthStore } from '@/store/authStore';
-import { CrearBeneficiarioPayload } from '@/types/models';
+import { CrearBeneficiarioPayload, Localidad } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -25,6 +25,10 @@ export default function AltaBeneficiario() {
   const [loading, setLoading] = useState(false);
   const [showMunis, setShowMunis] = useState(false);
   const [searchMuni, setSearchMuni] = useState('');
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [loadingLocalidades, setLoadingLocalidades] = useState(false);
+  const [showLocalidades, setShowLocalidades] = useState(false);
+  const [searchLocalidad, setSearchLocalidad] = useState('');
   const set = <K extends keyof CrearBeneficiarioPayload>(k: K, v: CrearBeneficiarioPayload[K]) => setForm((p: CrearBeneficiarioPayload) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -62,6 +66,37 @@ export default function AltaBeneficiario() {
     }, 350);
     return () => clearTimeout(timeout);
   }, [form, tecnico?.id]);
+
+  // Cargar localidades cuando se seleccione un municipio
+  useEffect(() => {
+    let active = true;
+    const cargarLocalidades = async () => {
+      if (!form.municipio) {
+        setLocalidades([]);
+        return;
+      }
+      
+      setLoadingLocalidades(true);
+      try {
+        const locs = await localidadesApi.listarPorMunicipio(form.municipio);
+        if (active) {
+          setLocalidades(locs);
+        }
+      } catch (error) {
+        console.error('Error cargando localidades:', error);
+        if (active) {
+          setLocalidades([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingLocalidades(false);
+        }
+      }
+    };
+    
+    cargarLocalidades();
+    return () => { active = false; };
+  }, [form.municipio]);
 
   // El backend actual no provee permisos específicos, se permite por defecto
   if (!tecnico) {
@@ -148,7 +183,30 @@ export default function AltaBeneficiario() {
               </View>
             )}
             <Text style={s.lbl}>Localidad / Ejido *</Text>
-            <TextInput style={s.inp} value={form.localidad} onChangeText={v => set('localidad', v)} placeholder="Nombre de la localidad" placeholderTextColor={Colors.gray400} />
+            <TouchableOpacity style={s.sel} onPress={() => { setShowLocalidades(!showLocalidades); }}>
+              <Text style={[s.selT, !form.localidad && s.ph]}>{form.localidad || 'Seleccionar localidad...'}</Text>
+              <Text style={s.arr}>{showLocalidades ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {showLocalidades && (
+              <View style={s.drop}>
+                <TextInput style={s.dropS} value={searchLocalidad} onChangeText={setSearchLocalidad} placeholder="Buscar localidad..." placeholderTextColor={Colors.gray400} />
+                <ScrollView style={{ maxHeight: 190 }} nestedScrollEnabled>
+                  {loadingLocalidades ? (
+                    <View style={s.loadingLocalidades}>
+                      <Text style={s.loadingLocalidadesText}>Cargando localidades...</Text>
+                    </View>
+                  ) : (
+                    localidades
+                      .filter(l => l.nombre.toLowerCase().includes(searchLocalidad.toLowerCase()))
+                      .map(l => (
+                        <TouchableOpacity key={l.id} style={[s.dropI, form.localidad === l.nombre && s.dropIA]} onPress={() => { set('localidad', l.nombre); setShowLocalidades(false); setSearchLocalidad(''); }}>
+                          <Text style={[s.dropIT, form.localidad === l.nombre && s.dropITA]}>{l.nombre}</Text>
+                        </TouchableOpacity>
+                      ))
+                  )}
+                </ScrollView>
+              </View>
+            )}
           </View>
 
           <View style={s.sec}><Text style={s.secT}>🌾 Datos Agrícolas</Text>
@@ -216,4 +274,6 @@ const s = StyleSheet.create({
   noAcc: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 40 },
   noAccT: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   noAccD: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  loadingLocalidades: { padding: 13, alignItems: 'center' },
+  loadingLocalidadesText: { fontSize: 13, color: Colors.textSecondary },
 });

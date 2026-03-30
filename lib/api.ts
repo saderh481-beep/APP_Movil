@@ -10,6 +10,7 @@ import {
   Bitacora,
   CadenaProductiva,
   Actividad,
+  Localidad,
   Evidencia,
   Usuario,
   Notificacion,
@@ -821,6 +822,38 @@ export const cadenasApi = {
   },
 };
 
+// ── LOCALIDADES ───────────────────────────────────────────
+export const localidadesApi = {
+  /** GET /localidades?municipio=string */
+  async listarPorMunicipio(municipio: string): Promise<Localidad[]> {
+    const token = await getToken();
+    
+    if (!token) {
+      console.error('[API ERROR] No hay token disponible para /localidades');
+      throw new Error('No autenticado: Token no disponible');
+    }
+    
+    const query = `?municipio=${encodeURIComponent(municipio)}`;
+    const json = await http<unknown>('GET', `/localidades${query}`, undefined, token);
+    const data = unwrapData(json);
+    const arr = asArray<unknown>(isRecord(data) && data.localidades ? data.localidades : data);
+    return arr.map(raw => {
+      const rec = isRecord(raw) ? raw : {};
+      return {
+        id: String(rec.id ?? ''),
+        municipio: String(rec.municipio ?? ''),
+        nombre: String(rec.nombre ?? ''),
+        cp: rec.cp ? String(rec.cp) : undefined,
+        activo: toBoolean(rec.activo, true),
+        created_by: rec.created_by ? String(rec.created_by) : undefined,
+        created_at: String(rec.created_at ?? nowIso()),
+        updated_at: String(rec.updated_at ?? nowIso()),
+        zona_id: rec.zona_id ? String(rec.zona_id) : undefined,
+      };
+    }).filter(l => l.id && l.nombre);
+  },
+};
+
 // ── BITÁCORAS ─────────────────────────────────────────────
 export const bitacorasApi = {
   /** POST /bitacoras */
@@ -866,7 +899,11 @@ export const bitacorasApi = {
     };
   },
 
-  /** GET /bitacoras/cerradas */
+  /** GET /bitacoras/cerradas
+   * NOTA: Este endpoint no está documentado en la API oficial.
+   * Se usa para obtener bitácoras cerradas del técnico autenticado.
+   * Verificar con el backend si este endpoint existe o si se debe usar GET /bitacoras con filtro de estado.
+   */
   async listarCerradas(): Promise<Array<{ id: string; tipo: string; beneficiario_id?: string; actividad_id?: string; estado: string }>> {
     try {
       const token = await getToken();
@@ -1243,7 +1280,18 @@ export const syncApi = {
     return false;
   },
 
-  /** POST /sync - Sincroniza operaciones offline */
+  /** POST /sync - Sincroniza operaciones offline
+   * 
+   * Este endpoint acepta un array de operaciones para sincronizar en batch.
+   * Cada operación debe tener:
+   * - operacion: 'crear_bitacora' | 'editar_bitacora' | 'cerrar_bitacora'
+   * - timestamp: ISO-8601 string
+   * - payload: datos de la operación
+   * 
+   * NOTA: Actualmente la app NO usa este endpoint para sincronización batch.
+   * En su lugar, usa bitacorasApi.crear() individualmente en syncPendingBitacora().
+   * Se recomienda refactorizar para usar este endpoint y mejorar rendimiento.
+   */
   async sincronizar(operaciones: Array<{
     operacion: string;
     timestamp: string;
