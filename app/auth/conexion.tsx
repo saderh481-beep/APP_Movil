@@ -1,13 +1,15 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { API_CONFIG, saveConnectionInfo, syncApi } from '@/lib/api';
+import { API_CONFIG } from '@/lib/api';
+import { saveConnectionInfo } from '@/lib/api/config';
+import { syncApi } from '@/lib/api';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Conexion() {
-  const [url, setUrl] = useState(API_CONFIG.APP_API_URL);
+  const [url, setUrl] = useState<string>(API_CONFIG.APP_API_URL);
   const [loading, setLoading] = useState(false);
 
   const verificar = async () => {
@@ -18,12 +20,17 @@ export default function Conexion() {
     }
     setLoading(true);
     try {
-      const ok = await syncApi.healthCheck(cleanUrl);
-      if (ok) {
+      const validation = await syncApi.validateServer(cleanUrl);
+      if (validation.ok) {
         await saveConnectionInfo({ appApiUrl: cleanUrl });
         router.replace('/auth/login');
       } else {
-        Alert.alert('Sin conexión', 'No se pudo conectar al servidor. Verifica la URL e intenta de nuevo.');
+        Alert.alert(
+          'Servidor no compatible',
+          validation.reason
+            ? `${validation.reason}. Verifica que sea la API móvil correcta y que tenga habilitado /auth/tecnico.`
+            : 'No se pudo validar el servidor. Verifica la URL e intenta de nuevo.'
+        );
       }
     } catch { Alert.alert('Error', 'No se pudo verificar la conexión'); }
     finally { setLoading(false); }
@@ -40,7 +47,7 @@ export default function Conexion() {
           </View>
           <View style={s.card}>
             <Text style={s.cardTitle}>Conexión al Servidor</Text>
-            <Text style={s.cardDesc}>Ingresa la URL del servidor API de SADERH para conectar.</Text>
+            <Text style={s.cardDesc}>Ingresa la URL del servidor API de SADERH. Se validará `health` y también el endpoint de acceso antes de guardar.</Text>
             <Text style={s.lbl}>URL del Servidor API</Text>
             <TextInput style={s.inp} value={url} onChangeText={setUrl} placeholder="https://mi-servidor.railway.app" placeholderTextColor={Colors.gray400} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
             <TouchableOpacity style={[s.btnP, loading && s.dis]} onPress={verificar} disabled={loading}>

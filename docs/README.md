@@ -74,9 +74,9 @@ app/tabs/alta-beneficiario.tsx ← PASO 2b: Agregar beneficiarios
 app/tabs/informacion.tsx      ← Perfil + configuración
 app/stack/detalle-asignacion  ← PASOS 3, 4, 5: Bitácora
 lib/api.ts                    ← Todos los endpoints + sync
-lib/secure-storage.ts         ← Manejo seguro de tokens
+
 lib/responsive.ts             ← Responsividad multi-pantalla
-constants/Colors.ts           ← Paleta guinda #621132
+constants/Colors.ts           ← Paleta guinda #8B0000
 store/authStore.ts            ← Estado global (Zustand)
 types/models.ts               ← Tipos TypeScript completos
 ```

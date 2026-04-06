@@ -3,12 +3,13 @@ import { useAuthStore } from '@/store/authStore';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import NetInfo from '@react-native-community/netinfo';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FileManager } from '@/lib/file-manager';
 import { startAutoExport, stopAutoExport } from '@/lib/export-service';
-import { startAutoSync, stopAutoSync } from '@/lib/sync-service';
+import { startAutoSync, stopAutoSync, syncNow } from '@/lib/sync-service';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,13 +45,13 @@ export default function RootLayout() {
         
         if (online) {
           // CRÍTICO: Sincronizar bitácoras pendientes
-          await syncApi.sincronizarPendientes();
+          // Sync handled by auto-sync service
           
           // NUEVO: Obtener delta de cambios del servidor
           // para actualizar asignaciones que pueden haber cambiado
           try {
             const lastSync = await AsyncStorage.getItem('@saderh:last_sync_time');
-            await syncApi.delta(lastSync || undefined);
+            await syncApi.delta();
           } catch (e) {
             console.warn('Delta sync falló (no crítico):', e);
             // Delta es complementario, si falla el dashboard lo reintentará
@@ -73,6 +74,17 @@ export default function RootLayout() {
   // Iniciar servicios automáticos cuando el usuario está autenticado
   useEffect(() => {
     if (!isAuthenticated) return;
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const reachable = Boolean(state.isConnected) && state.isInternetReachable !== false;
+      setOffline(!reachable);
+
+      if (reachable) {
+        syncNow().catch((error) => {
+          console.warn('NetInfo sync falló:', error);
+        });
+      }
+    });
     
     // Iniciar sincronización automática de bitácoras (cada 30 segundos)
     startAutoSync(30 * 1000);
@@ -84,6 +96,7 @@ export default function RootLayout() {
     
     return () => {
       // Limpiar servicios al cerrar sesión
+      unsubscribe();
       stopAutoSync();
       stopAutoExport();
       console.log('[LAYOUT] Servicios automáticos detenidos');

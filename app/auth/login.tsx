@@ -1,8 +1,10 @@
 import { Colors } from '@/constants/Colors';
-import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { authApi } from '@/lib/api';
+import { fontSize, radius, rh, rw, spacing } from '@/lib/responsive';
 import { Validators } from '@/lib/validators';
+import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -81,13 +83,9 @@ export default function Login() {
     }
   };
 
-  const validateCode = (): string | null => {
-    const result = Validators.validateAccessCode(codigo);
-    return result.valid ? null : result.error || 'Código inválido';
-  };
-
   const onLogin = async () => {
-    const validationError = validateCode();
+  const validationResult = Validators.validateAccessCode(codigo);
+  const validationError = validationResult.valid ? null : validationResult.error;
     if (validationError) {
       setErrorMessage(validationError);
       setStatus('error');
@@ -106,8 +104,13 @@ export default function Login() {
       await setAuth(res.token, res.tecnico);
       console.log('[LOGIN] Auth guardado, token:', res.token.substring(0, 20) + '...');
       
-      // Esperar a que AsyncStorage confirme escritura (problema de sincronización)
-      await new Promise(r => setTimeout(r, 300));
+      // Verificar que el token se guardó correctamente
+      const storedToken = await AsyncStorage.getItem('@saderh:token');
+      if (!storedToken || storedToken !== res.token) {
+        console.error('[LOGIN] ❌ Token no se guardó correctamente');
+        throw new Error('Error guardando sesión. Intenta de nuevo.');
+      }
+      console.log('[LOGIN] ✅ Token guardado y verificado');
       
       setStatus('success');
       if (res.offline) {
@@ -132,7 +135,11 @@ export default function Login() {
         setErrorMessage('Formato de código inválido. Debe ser exactamente 5 dígitos.');
       }
       
-      await clearAuth();
+      // Solo limpiar sesión si el error es de autenticación
+      if (errorMsg.includes('autenticación') || errorMsg.includes('401') || errorMsg.includes('token')) {
+        await clearAuth();
+      }
+      
       shake();
       setCodigo('');
       setTimeout(() => ref.current?.focus(), 300);

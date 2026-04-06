@@ -11,14 +11,14 @@
     ],
     "splash": {
       "image": "./assets/splash-icon.png",
-      "backgroundColor": "#621132",
+      "backgroundColor": "#8B0000",
       "resizeMode": "contain"
     },
     "android": {
       "package": "mx.gob.hidalgo.saderh",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#621132"
+        "backgroundColor": "#8B0000"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",

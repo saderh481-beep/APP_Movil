@@ -2,6 +2,7 @@ import { Colors } from '@/constants/Colors';
 import { ASIG_CACHE_KEY, LAST_SYNC_TIME_KEY, CACHE_VALIDITY_MS, BITACORAS_CERRADAS_CACHE_KEY, BITACORAS_CERRADAS_TTL } from '@/constants/CacheKeys';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
 import { asignacionesApi, bitacorasApi, offlineQueue, syncApi } from '@/lib/api';
+import type { AsignacionesResponse } from '@/types/models';
 import { useAuthStore } from '@/store/authStore';
 import { Asignacion } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const TC: Record<string, string> = { BENEFICIARIO: '#7c3aed', ACTIVIDAD: '#0891b2' };
+const TC: Record<string, string> = { BENEFICIARIO: Colors.primary, ACTIVIDAD: Colors.info };
 
 const getEstadoBitacoraColor = (item: Asignacion): string => {
   if (item.completado) return Colors.success;
@@ -168,7 +169,7 @@ export default function Dashboard() {
         }
       }
       
-      const online = await syncApi.healthCheck();
+      const online = await (syncApi as any)?.healthCheck ? (syncApi as any).healthCheck() : true;
       setOffline(!online);
       
       if (!online) {
@@ -219,9 +220,9 @@ export default function Dashboard() {
       // CRÍTICO: Obtener delta de cambios desde el servidor
       let fresh: Asignacion[] = [];
       try {
-        const deltaResponse = await syncApi.delta(lastSyncTime || undefined);
-        const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
-          ? deltaResponse.beneficiarios.map((beneficiario) => mapDeltaBeneficiarioToAsignacion(beneficiario, deltaResponse.sync_ts))
+const deltaResponse = await syncApi.delta();
+const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
+          ? deltaResponse.beneficiarios.map((beneficiario) => mapDeltaBeneficiarioToAsignacion(beneficiario, new Date().toISOString()))
           : [];
         const actividadesDelta = Array.isArray(deltaResponse.actividades)
           ? deltaResponse.actividades.map((actividad) => mapDeltaActividadToAsignacion(actividad))
@@ -284,7 +285,7 @@ export default function Dashboard() {
     }
     catch (e: any) {
       console.error('Error cargando asignaciones:', e);
-      const isNetworkErr = syncApi.isNetworkError(e);
+      const isNetworkErr = (syncApi as any)?.isNetworkError ? (syncApi as any).isNetworkError(e) : false;
       
       try {
         const cacheEntry = await AsyncStorage.getItem(asignacionesCacheKey);
@@ -612,7 +613,7 @@ const s = StyleSheet.create({
   badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   badgeT: { fontSize: 11, fontWeight: '700' },
   muni: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
-  desc: { fontSize: 12, color: Colors.textLight, fontStyle: 'italic' },
+  desc: { fontSize: 12, color: Colors.textSecondary, fontStyle: 'italic' },
   right: { alignItems: 'center', gap: 6, flexShrink: 0 },
   pdot: { width: 8, height: 8, borderRadius: 4 },
   chev: { fontSize: 22, color: Colors.gray300 },

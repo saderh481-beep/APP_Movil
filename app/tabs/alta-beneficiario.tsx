@@ -248,7 +248,7 @@ const s = StyleSheet.create({
     color: Colors.textPrimary,
     width: '100%',
   },
-  dropI: { padding: 13, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  dropI: { padding: 13, borderBottomWidth: 1, borderBottomColor: Colors.border },
   dropIA: { backgroundColor: Colors.guindaAlpha },
   dropIT: { fontSize: 14, color: Colors.textPrimary },
   dropITA: { color: Colors.guinda, fontWeight: '700' },

@@ -1,5 +1,6 @@
 import { http, isNetworkError } from './http';
 import { getToken } from './auth';
+import { offlineQueue } from './offline-queue';
 import { unwrapData, isRecord, asArray, normalizeBeneficiario, nowIso, toBoolean } from './utils';
 import { Beneficiario, CrearBeneficiarioPayload, CadenaProductiva, Localidad } from '../../types/models';
 
@@ -31,28 +32,68 @@ export const beneficiariosApi = {
     const token = await getToken();
     
     if (!token) {
-      console.error('[API ERROR] No hay token disponible para /beneficiarios');
-      throw new Error('No autenticado: Token no disponible');
+      const localId = `local_${Date.now()}`;
+      await offlineQueue.pushPendingBeneficiario({
+        local_id: localId,
+        created_at: nowIso(),
+        payload,
+      });
+      return {
+        id: localId,
+        nombre: payload.nombre_completo,
+        nombre_completo: payload.nombre_completo,
+        municipio: payload.municipio,
+        localidad: payload.localidad,
+        curp: payload.curp,
+        folio_saderh: payload.folio_saderh,
+        cadena_productiva: payload.cadena_productiva,
+        telefono_contacto: payload.telefono_contacto,
+        activo: true,
+      };
     }
     
-    const json = await http<unknown>('POST', '/beneficiarios', payload, token);
-    const data = unwrapData(json);
-    const rec = isRecord(data) ? data : {};
-    
-    console.log('[beneficiariosApi.crear] Beneficiario creado en servidor:', rec.id ?? 'sin id');
-    
-    return {
-      id: String(rec.id ?? rec.id_beneficiario ?? ''),
-      nombre: String(rec.nombre ?? payload.nombre_completo),
-      nombre_completo: payload.nombre_completo,
-      municipio: payload.municipio,
-      localidad: payload.localidad,
-      curp: payload.curp,
-      folio_saderh: payload.folio_saderh,
-      cadena_productiva: payload.cadena_productiva,
-      telefono_contacto: payload.telefono_contacto,
-      activo: true,
-    };
+    try {
+      const json = await http<unknown>('POST', '/beneficiarios', payload, token);
+      const data = unwrapData(json);
+      const rec = isRecord(data) ? data : {};
+      
+      console.log('[beneficiariosApi.crear] Beneficiario creado en servidor:', rec.id ?? 'sin id');
+      
+      return {
+        id: String(rec.id ?? rec.id_beneficiario ?? ''),
+        nombre: String(rec.nombre ?? payload.nombre_completo),
+        nombre_completo: payload.nombre_completo,
+        municipio: payload.municipio,
+        localidad: payload.localidad,
+        curp: payload.curp,
+        folio_saderh: payload.folio_saderh,
+        cadena_productiva: payload.cadena_productiva,
+        telefono_contacto: payload.telefono_contacto,
+        activo: true,
+      };
+    } catch (error) {
+      if (!isNetworkError(error)) throw error;
+
+      const localId = `local_${Date.now()}`;
+      await offlineQueue.pushPendingBeneficiario({
+        local_id: localId,
+        created_at: nowIso(),
+        payload,
+      });
+
+      return {
+        id: localId,
+        nombre: payload.nombre_completo,
+        nombre_completo: payload.nombre_completo,
+        municipio: payload.municipio,
+        localidad: payload.localidad,
+        curp: payload.curp,
+        folio_saderh: payload.folio_saderh,
+        cadena_productiva: payload.cadena_productiva,
+        telefono_contacto: payload.telefono_contacto,
+        activo: true,
+      };
+    }
   },
 };
 

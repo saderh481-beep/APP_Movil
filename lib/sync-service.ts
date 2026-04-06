@@ -5,9 +5,13 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { KEYS, offlineQueue, API_CONFIG, syncApi } from './api';
+import NetInfo from '@react-native-community/netinfo';
+import { KEYS, API_CONFIG } from './api/config';
 import { FileManager, getSubdirectory } from './file-manager';
-import { PendingBitacoraUpload } from './api';
+import type { Bitacora } from '../types/models';
+import { unwrapData, nowIso } from './api/utils';
+import { offlineQueue } from './api/offline-queue';
+import { syncApi } from './api/sync';
 
 // Intervalo de sincronización (en ms) - default 30 segundos
 const SYNC_INTERVAL = 30 * 1000;
@@ -94,6 +98,13 @@ const checkConnection = async (): Promise<boolean> => {
   const startTime = Date.now();
   
   try {
+    const netState = await NetInfo.fetch();
+    const hasTransport = Boolean(netState.isConnected) && netState.isInternetReachable !== false;
+    if (!hasTransport) {
+      connectionRetryCount++;
+      return false;
+    }
+
     // Método 1: Intentar fetch al servidor
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -139,23 +150,7 @@ const checkConnection = async (): Promise<boolean> => {
       console.log('[SYNC] Método 2 también falló');
     }
     
-    // Método 3: Verificar si hay network básico
-    // Intentar un fetch a un recurso conocido
-    try {
-      const controller3 = new AbortController();
-      const timeout3 = setTimeout(() => controller3.abort(), 3000);
-      
-      await fetch('https://www.google.com/generate_204', {
-        method: 'HEAD',
-        signal: controller3.signal,
-      });
-      clearTimeout(timeout3);
-      
-      // Si llegamos aquí, hay internet pero el servidor puede estar caído
-      console.log('[SYNC] Hay conexión a internet pero servidor no responde');
-    } catch (e) {
-      // Ninguna conexión
-    }
+    console.log('[SYNC] Hay red disponible, pero el servidor no responde correctamente');
     
     // Si todos los métodos fallan, incrementar contador de reintentos
     connectionRetryCount++;
@@ -227,7 +222,7 @@ const saveSyncState = async (state: SyncState): Promise<void> => {
  * Sincroniza una bitácora individual usando fetch directo
  */
 const syncBitacora = async (
-  bitacora: PendingBitacoraUpload,
+  bitacora: any,
   token: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
@@ -294,9 +289,9 @@ const syncAllPendingBitacoras = async (token: string): Promise<{
       beneficiario_id: b.payload.beneficiario_id ?? undefined,
       cadena_productiva_id: b.payload.cadena_productiva_id ?? undefined,
       actividad_id: b.payload.actividad_id ?? undefined,
-    };
+    } as Record<string, unknown>;
     
-    return payload.tipo && payload.fecha_inicio;
+    return Boolean(payload.tipo) && Boolean(payload.fecha_inicio);
   });
   
   for (const bitacora of bitacorasValidas) {
@@ -350,12 +345,12 @@ export const syncAll = async (): Promise<SyncResult> => {
     
     // Actualizar estado
     const pendingCount = await offlineQueue.countPendingBitacoras();
-    const pendingBenef = (await offlineQueue.getPendingBeneficiarios()).length;
+    const pendingBenef2 = (await offlineQueue.getPendingBeneficiarios()).length;
     const state = await getSyncState();
     state.lastSync = new Date().toISOString();
-    state.pendingUploads = pendingCount + pendingBenef;
+    state.pendingUploads = pendingCount + pendingBenef2;
     state.lastError = result.errores.length > 0 
-      ? result.errores.join('; ') 
+      ? result.errores.join('; ')
       : null;
     state.isOnline = true;
     state.isSyncing = false;
@@ -363,15 +358,15 @@ export const syncAll = async (): Promise<SyncResult> => {
     await saveSyncState(state);
     
     const duration = Date.now() - startTime;
-    console.log(`[SYNC] Sincronización completada en ${duration}ms. ${result.sincronizadas} sincronizadas.`);
+    console.log(`[SYNC] Sincronización completada en ${duration}ms. Sincronizadas: ${result.sincronizadas}`);
     
+    const failedCount = result.errores.length;
+    const errorMsg = failedCount > 0 ? result.errores.join('; ') : undefined;
     return {
-      success: result.errores.length === 0,
-      syncedCount: (pendingBefore + pendingBenefBefore) - (pendingCount + pendingBenef),
-      failedCount: result.errores.length,
-      error: result.errores.length > 0 
-        ? result.errores.join('; ') 
-        : undefined,
+      success: failedCount === 0,
+      syncedCount: pendingBefore + pendingBenefBefore - pendingCount - pendingBenef2,
+      failedCount,
+      error: errorMsg,
       timestamp: new Date().toISOString(),
     };
     

@@ -45,89 +45,15 @@ if (tokenCheck.valid) {
 
 ---
 
-## 📊 Usar Sistema de Logging
 
-```typescript
-import { Logger, LogCategories } from '@/lib/logger';
-
-// Log simple
-Logger.info(LogCategories.AUTH, 'Usuario autenticado');
-
-// Log con datos
-Logger.warn(LogCategories.NETWORK, 'API lenta', { responseTime: 5000 });
-
-// Log de error
-Logger.error(LogCategories.API, 'Fallo en endpoint', error);
-
-// Obtener historial de logs
-const logs = Logger.getHistory();
-const recentErrors = Logger.filter({ level: LogLevel.ERROR, since: new Date(Date.now() - 3600000) });
-
-// Exportar para enviar a soporte
-const report = Logger.export();
-console.log(report); // JSON con timestamp y todos los logs
-```
 
 ---
 
-## 🔍 Ejecutar Diagnóstico
 
-```typescript
-import { Diagnostic } from '@/lib/diagnostic';
-
-// Diagnóstico completo
-const diag = await Diagnostic.runFullDiagnostic();
-console.log('Estado del sistema:', diag.issues, diag.warnings);
-
-// Generar reporte legible
-const report = await Diagnostic.generateReport();
-console.log(report);
-
-/*
-╔══════════════════════════════════════════════════════════════╗
-║                   REPORTÉ DE DIAGNÓSTICO                    ║
-║                        SADERH v1.0.0                         ║
-╚══════════════════════════════════════════════════════════════╝
-
-📱 DISPOSITIVO
-  Brand: Samsung
-  Model: SM-G991B
-  OS: Android 13
-
-🔧 APLICACIÓN
-  Modo: Producción
-  Storage: SecureStore (encrypted)
-
-🌐 CONECTIVIDAD
-  Online: ✅
-  API Health: ✅
-
-⏳ COLA OFFLINE
-  Items pendientes: 5
-  Tamaño: 2.34MB
-
-✅ ESTADO: SISTEMA EN OPTIMAS CONDICIONES
-*/
-```
 
 ---
 
-## 🔐 Almacenamiento Seguro
 
-```typescript
-import * as SecureStorage from '@/lib/secure-storage';
-
-// Guardar token (encriptado en producción)
-await SecureStorage.setItem('@app:token', myToken, true);
-
-// Leer token
-const token = await SecureStorage.getItem('@app:token', true);
-
-// Información del storage
-const info = SecureStorage.getStorageInfo();
-console.log(info);
-// { isDevelopment: false, useSecureStore: true, backendStorage: "SecureStore (encrypted)" }
-```
 
 ---
 

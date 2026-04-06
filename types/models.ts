@@ -219,3 +219,57 @@ export interface BeneficiariosResponse {
   beneficiarios: Beneficiario[];
   total: number;
 }
+
+export interface CrearBitacoraPayload {
+  tipo: "beneficiario" | "actividad";
+  beneficiario_id?: string;
+  cadena_productiva_id?: string;
+  actividad_id?: string;
+  fecha_inicio: string;
+  coord_inicio?: string;
+  sync_id?: string;
+}
+
+export interface BitacoraCerrarPayload {
+  fecha_fin: string;
+  coord_fin?: string;
+}
+
+export interface BitacoraUpdatePayload {
+  coord_inicio?: string;
+  coord_fin?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  actividades_desc?: string;
+  recomendaciones?: string;
+  comentarios_beneficiario?: string;
+  observaciones_coordinador?: string;
+  coordinacion_interinst?: boolean;
+  instancia_coordinada?: string;
+  proposito_coordinacion?: string;
+  updated_at?: string;
+}
+
+export interface SyncOperacion {
+  operacion: string;
+  timestamp: string;
+  payload: Record<string, unknown>;
+}
+
+export interface SyncRequestBody {
+  operaciones: SyncOperacion[];
+}
+
+export interface SyncResultItem {
+  sync_id: string;
+  operacion: string;
+  exito: boolean;
+  mensaje?: string;
+}
+
+export interface SyncDeltaResponse {
+  sync_ts: string;
+  beneficiarios: Beneficiario[];
+  actividades: Actividad[];
+  cadenas: CadenaProductiva[];
+}

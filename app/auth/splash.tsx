@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 const W = Dimensions.get('window').width;
 
 export default function Splash() {
@@ -44,7 +45,7 @@ export default function Splash() {
   };
 
   return (
-    <View style={s.c}>
+    <SafeAreaView style={s.c}>
       {/* @ts-ignore */}
       <Animated.View style={[s.logo, { opacity, transform: [{ scale }] }]}>
         {/* Icono del gobierno - escudo */}
@@ -65,7 +66,7 @@ export default function Splash() {
         // @ts-ignore
         <Animated.View style={[s.btnCont, { opacity: btnOp, transform: [{ scale: btnScale }] }]}>
           <TouchableOpacity style={s.btn} onPress={handleComenzar} activeOpacity={0.8}>
-            <Text style={s.btnT}>🚀Comenzar</Text>
+            <Text style={s.btnT}>Comenzar</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -78,30 +79,28 @@ export default function Splash() {
         
         {/* Sección Crédito Universidad */}
         <View style={s.universidadSection}>
-          <Text style={s.uniIcon}>🎓</Text>
           <Text style={s.creditoUni}>Desarrollado en colaboración con Universidad</Text>
         </View>
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  c: { flex: 1, backgroundColor: Colors.guinda, alignItems: 'center', justifyContent: 'center' },
+  c: { flex: 1, backgroundColor: Colors.guinda, alignItems: 'center', justifyContent: 'center', paddingHorizontal: rw(20) },
   logo: { alignItems: 'center', gap: 14 },
   escudo: { width: 80, height: 80, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   escudoT: { fontSize: 60 },
   title: { fontSize: 58, fontWeight: '900', color: Colors.white, letterSpacing: 5 },
   line: { height: 3, backgroundColor: Colors.dorado, borderRadius: 2 },
   sub: { fontSize: 15, color: 'rgba(255,255,255,0.8)', letterSpacing: 1.5 },
-  btnCont: { position: 'absolute', bottom: 180 },
+  btnCont: { position: 'absolute', bottom: 180, left: 20, right: 20 },
   btn: { backgroundColor: Colors.dorado, paddingVertical: 16, paddingHorizontal: 48, borderRadius: 30, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   btnT: { fontSize: 18, fontWeight: '800', color: Colors.guinda, textAlign: 'center' },
-  footer: { position: 'absolute', bottom: 30, alignItems: 'center', gap: 4 },
+  footer: { position: 'absolute', bottom: 30, alignItems: 'center', gap: 4, paddingHorizontal: 20 },
   fTop: { fontSize: 13, color: Colors.dorado, fontWeight: '600' },
   fBot: { fontSize: 11, color: 'rgba(255,255,255,0.55)' },
   // Universidad
   universidadSection: { marginTop: 20, alignItems: 'center', paddingTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
-  uniIcon: { fontSize: 24, marginBottom: 6 },
   creditoUni: { fontSize: 10, color: 'rgba(255,255,255,0.5)', textAlign: 'center' },
 });
