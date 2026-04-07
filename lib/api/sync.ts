@@ -1,7 +1,14 @@
 import { http, isNetworkError } from './http';
 import { getToken } from './auth';
 import { getBaseUrl } from './config';
-import { unwrapData, isRecord, nowIso } from './utils';
+import {
+  unwrapData,
+  isRecord,
+  nowIso,
+  asArray,
+  normalizeActividad,
+  normalizeBeneficiario,
+} from './utils';
 import type { SyncRequestBody, SyncDeltaResponse, SyncResultItem } from '../../types/models';
 import { offlineQueue } from './offline-queue';
 import { bitacorasApi } from './bitacoras';
@@ -101,6 +108,19 @@ const finalizePendingOperations = async (resultados: SyncResultItem[]) => {
   };
 };
 
+const normalizeCadena = (raw: unknown) => {
+  const rec = isRecord(raw) ? raw : {};
+  return {
+    id: String(rec.id ?? ''),
+    nombre: String(rec.nombre ?? ''),
+    descripcion: rec.descripcion ? String(rec.descripcion) : undefined,
+    activo: typeof rec.activo === 'boolean' ? rec.activo : true,
+    created_by: String(rec.created_by ?? ''),
+    created_at: String(rec.created_at ?? nowIso()),
+    updated_at: String(rec.updated_at ?? nowIso()),
+  };
+};
+
 export const syncApi = {
   async healthCheck(url?: string): Promise<boolean> {
     try {
@@ -161,13 +181,17 @@ export const syncApi = {
     const query = ultimoSync ? `?ultimo_sync=${encodeURIComponent(ultimoSync)}` : '';
     const json = await http<unknown>('GET', `/sync/delta${query}`, undefined, token);
     const data = unwrapData(json);
+
+    const beneficiarios = asArray<unknown>(isRecord(data) ? data.beneficiarios : []).map(normalizeBeneficiario).filter(item => item.id);
+    const actividades = asArray<unknown>(isRecord(data) ? data.actividades : []).map(normalizeActividad).filter(item => item.id);
+    const cadenas = asArray<unknown>(isRecord(data) ? data.cadenas : []).map(normalizeCadena).filter(item => item.id && item.nombre);
+
     return {
       sync_ts: String((data as any).sync_ts ?? nowIso()),
-      beneficiarios: [],
-      actividades: [],
-      cadenas: [],
-      // Parse arrays...
-    } as SyncDeltaResponse; // TODO: full parse
+      beneficiarios,
+      actividades,
+      cadenas,
+    };
   },
 
   async sincronizarPendientes(): Promise<{ sincronizadas: number; errores: string[] }> {
