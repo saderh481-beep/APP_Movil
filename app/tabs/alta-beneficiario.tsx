@@ -1,21 +1,72 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { beneficiariosApi, localidadesApi } from '@/lib/api';
+import { beneficiariosApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { CrearBeneficiarioPayload, Localidad } from '@/types/models';
+import { CrearBeneficiarioPayload } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Función para generar folio automático
+const MUNICIPIOS_HIDALGO = [
+  'Acatlán', 'Acaxochitlán', 'Actopan', 'Agua Blanca de Iturbide', 'Ajacuba',
+  'Alfajayucan', 'Almoloya', 'Apan', 'Atitalaquia', 'Atlapexco',
+  'Atotonilco el Grande', 'Atotonilco de Tula', 'Calnali', 'Cardonal',
+  'Cuautepec de Hinojosa', 'Chapantongo', 'Chapulhuacán', 'Chilcuautla',
+  'Eloxochitlán', 'Epazoyucan', 'Francisco I. Madero', 'Huasca de Ocampo',
+  'Huautla', 'Huazalingo', 'Huehuetla', 'Huejutla de Reyes', 'Huichapan',
+  'Ixmiquilpan', 'Jacala de Ledezma', 'Jaltocán', 'Juárez Hidalgo',
+  'Lolotla', 'Metepec', 'San Agustín Metzquititlán', 'Metztitlán',
+  'Mineral del Chico', 'Mineral del Monte', 'Mineral de la Reforma',
+  'La Misión', 'Mixquiahuala de Juárez', 'Molango de Escamilla',
+  'Nicolás Flores', 'Nopala de Villagrán', 'Omitlán de Juárez',
+  'San Felipe Orizatlán', 'Pacula', 'Pachuca de Soto', 'Pisaflores',
+  'Progreso de Obregón', 'San Agustín Tlaxiaca', 'San Bartolo Tutotepec',
+  'San Salvador', 'Santiago de Anaya', 'Santiago Tulantepec de Lugo Guerrero',
+  'Singuilucan', 'Tasquillo', 'Tecozautla', 'Tenango de Doria',
+  'Tepeapulco', 'Tepehuacán de Guerrero', 'Tepeji del Río de Ocampo',
+  'Tepetitlán', 'Tetepango', 'Tezontepec de Aldama', 'Tianguistengo',
+  'Tizayuca', 'Tlahuelilpan', 'Tlahuiltepa', 'Tlanalapa', 'Tlanchinol',
+  'Tlaxcoapan', 'Tolcayuca', 'Tula de Allende', 'Tulancingo de Bravo',
+  'Xochiatipan', 'Xochicoatlán', 'Yahualica', 'Zacualtipán de Ángeles',
+  'Zapotlán de Juárez', 'Zempoala', 'Zimapán',
+];
+
+const LOCALIDADES_HIDALGO = [
+  'Acatlán', 'Acaxochitlán', 'Actopan', 'Agua Blanca de Iturbide', 'Ajacuba',
+  'Alfajayucan', 'Almoloya', 'Apan', 'Atitalaquia', 'Atlapexco',
+  'Atotonilco el Grande', 'Atotonilco de Tula', 'Calnali', 'Cardonal',
+  'Cuautepec de Hinojosa', 'Chapantongo', 'Chapulhuacán', 'Chilcuautla',
+  'Eloxochitlán', 'Epazoyucan', 'Francisco I. Madero', 'Huasca de Ocampo',
+  'Huautla', 'Huazalingo', 'Huehuetla', 'Huejutla de Reyes', 'Huichapan',
+  'Ixmiquilpan', 'Jacala de Ledezma', 'Jaltocán', 'Juárez Hidalgo',
+  'Lolotla', 'Metepec', 'San Agustín Metzquititlán', 'Metztitlán',
+  'Mineral del Chico', 'Mineral del Monte', 'Mineral de la Reforma',
+  'La Misión', 'Mixquiahuala de Juárez', 'Molango de Escamilla',
+  'Nicolás Flores', 'Nopala de Villagrán', 'Omitlán de Juárez',
+  'San Felipe Orizatlán', 'Pacula', 'Pachuca de Soto', 'Pisaflores',
+  'Progreso de Obregón', 'San Agustín Tlaxiaca', 'San Bartolo Tutotepec',
+  'San Salvador', 'Santiago de Anaya', 'Santiago Tulantepec de Lugo Guerrero',
+  'Singuilucan', 'Tasquillo', 'Tecozautla', 'Tenango de Doria',
+  'Tepeapulco', 'Tepehuacán de Guerrero', 'Tepeji del Río de Ocampo',
+  'Tepetitlán', 'Tetepango', 'Tezontepec de Aldama', 'Tianguistengo',
+  'Tizayuca', 'Tlahuelilpan', 'Tlahuiltepa', 'Tlanalapa', 'Tlanchinol',
+  'Tlaxcoapan', 'Tolcayuca', 'Tula de Allende', 'Tulancingo de Bravo',
+  'Xochiatipan', 'Xochicoatlán', 'Yahualica', 'Zacualtipán de Ángeles',
+  'Zapotlán de Juárez', 'Zempoala', 'Zimapán',
+];
+
+const REFRESH_BENEFICIARIOS_KEY = '@saderh:refresh_beneficiarios';
+
 const generarFolio = (): string => {
   const anio = new Date().getFullYear();
   const random = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
   return `HGO-${anio}-${random}`;
 };
 
-const INI: CrearBeneficiarioPayload = { nombre_completo: '', curp: '', municipio: '', localidad: '', folio_saderh: '', cadena_productiva: '', telefono_contacto: '' };
+const keyboardBehavior = Platform.OS === 'ios' ? 'padding' : 'height';
+
+const INI: CrearBeneficiarioPayload = { nombre_completo: '', curp: '', municipio: '', localidad: '', folio_saderh: '', cadena_productiva: '', telefono_contacto: '', tecnico_id: '' };
 const getDraftKey = (tecnicoId?: string) => `@saderh:draft:beneficiario:${tecnicoId ?? 'anon'}`;
 
 export default function AltaBeneficiario() {
@@ -24,10 +75,8 @@ export default function AltaBeneficiario() {
   const [loading, setLoading] = useState(false);
   const [showMunis, setShowMunis] = useState(false);
   const [searchMuni, setSearchMuni] = useState('');
-  const [localidades, setLocalidades] = useState<Localidad[]>([]);
-  const [loadingLocalidades, setLoadingLocalidades] = useState(false);
-  const [showLocalidades, setShowLocalidades] = useState(false);
-  const [searchLocalidad, setSearchLocalidad] = useState('');
+  const [showLocs, setShowLocs] = useState(false);
+  const [searchLoc, setSearchLoc] = useState('');
   const set = <K extends keyof CrearBeneficiarioPayload>(k: K, v: CrearBeneficiarioPayload[K]) => setForm((p: CrearBeneficiarioPayload) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -57,6 +106,12 @@ export default function AltaBeneficiario() {
   }, [tecnico?.id]);
 
   useEffect(() => {
+    if (tecnico?.id) {
+      setForm(prev => ({ ...prev, tecnico_id: tecnico.id }));
+    }
+  }, [tecnico?.id]);
+
+  useEffect(() => {
     const timeout = setTimeout(() => {
       AsyncStorage.setItem(
         getDraftKey(tecnico?.id),
@@ -66,38 +121,6 @@ export default function AltaBeneficiario() {
     return () => clearTimeout(timeout);
   }, [form, tecnico?.id]);
 
-  // Cargar localidades cuando se seleccione un municipio
-  useEffect(() => {
-    let active = true;
-    const cargarLocalidades = async () => {
-      if (!form.municipio) {
-        setLocalidades([]);
-        return;
-      }
-      
-      setLoadingLocalidades(true);
-      try {
-        const locs = await localidadesApi.listarPorMunicipio(form.municipio);
-        if (active) {
-          setLocalidades(locs);
-        }
-      } catch (error) {
-        console.error('Error cargando localidades:', error);
-        if (active) {
-          setLocalidades([]);
-        }
-      } finally {
-        if (active) {
-          setLoadingLocalidades(false);
-        }
-      }
-    };
-    
-    cargarLocalidades();
-    return () => { active = false; };
-  }, [form.municipio]);
-
-  // El backend actual no provee permisos específicos, se permite por defecto
   if (!tecnico) {
     return (
       <SafeAreaView style={s.cont} edges={['top']}>
@@ -114,7 +137,6 @@ export default function AltaBeneficiario() {
   const validar = () => {
     if (!form.nombre_completo.trim()) return 'El nombre es requerido';
     if (form.curp.trim().length !== 18) return 'La CURP debe tener 18 caracteres';
-    // Validar formato básico de CURP
     const curpRegex = /^[A-Z]{4}\d{6}[A-Z]{6}[A-Z0-9]\d$/;
     if (!curpRegex.test(form.curp.trim())) return 'El formato de CURP no es válido';
     if (!form.municipio) return 'Selecciona un municipio';
@@ -128,8 +150,12 @@ export default function AltaBeneficiario() {
     const err = validar(); if (err) { Alert.alert('Datos incompletos', err); return; }
     setLoading(true);
     try {
-      const created = await beneficiariosApi.crear(form);
+      const formToSave = { ...form, tecnico_id: tecnico?.id ?? form.tecnico_id };
+      console.log('[alta-beneficiario] Guardando beneficiario con tecnico_id:', formToSave.tecnico_id);
+      const created = await beneficiariosApi.crear(formToSave);
+      console.log('[alta-beneficiario] Beneficiario creado:', created.id, created.tecnico_id);
       await AsyncStorage.removeItem(getDraftKey(tecnico?.id));
+      await AsyncStorage.setItem(REFRESH_BENEFICIARIOS_KEY, Date.now().toString());
       const offlineSaved = created.id.startsWith('local_');
       Alert.alert(
         offlineSaved ? 'Guardado localmente' : '✅ Registrado',
@@ -142,15 +168,13 @@ export default function AltaBeneficiario() {
     finally { setLoading(false); }
   };
 
-
-
   return (
     <SafeAreaView style={s.cont} edges={['top']}>
       <View style={s.header}>
         <Text style={s.hT}>Alta de Beneficiario</Text>
         <Text style={s.hS}>Registrar nuevo beneficiario en el sistema</Text>
       </View>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           <View style={s.sec}><Text style={s.secT}>👤 Datos Personales</Text>
@@ -164,33 +188,28 @@ export default function AltaBeneficiario() {
           </View>
 
           <View style={s.sec}><Text style={s.secT}>📍 Ubicación</Text>
-<Text style={s.lbl}>Municipio *</Text>
-            <TextInput style={s.inp} value={form.municipio} onChangeText={v => set('municipio', v)} placeholder="Escribe nombre del municipio" placeholderTextColor={Colors.gray400} />
-            <Text style={s.lbl}>Localidad / Ejido *</Text>
-            <TouchableOpacity style={s.sel} onPress={() => { setShowLocalidades(!showLocalidades); }}>
-              <Text style={[s.selT, !form.localidad && s.ph]}>{form.localidad || 'Seleccionar localidad...'}</Text>
-              <Text style={s.arr}>{showLocalidades ? '▲' : '▼'}</Text>
+            <Text style={s.lbl}>Municipio *</Text>
+            <TouchableOpacity style={s.sel} onPress={() => { setShowMunis(!showMunis); }}>
+              <Text style={[s.selT, !form.municipio && s.ph]}>{form.municipio || 'Seleccionar municipio...'}</Text>
+              <Text style={s.arr}>{showMunis ? '▲' : '▼'}</Text>
             </TouchableOpacity>
-            {showLocalidades && (
+            {showMunis && (
               <View style={s.drop}>
-                <TextInput style={s.dropS} value={searchLocalidad} onChangeText={setSearchLocalidad} placeholder="Buscar localidad..." placeholderTextColor={Colors.gray400} />
+                <TextInput style={s.dropS} value={searchMuni} onChangeText={setSearchMuni} placeholder="Buscar municipio..." placeholderTextColor={Colors.gray400} />
                 <ScrollView style={{ maxHeight: 190 }} nestedScrollEnabled>
-                  {loadingLocalidades ? (
-                    <View style={s.loadingLocalidades}>
-                      <Text style={s.loadingLocalidadesText}>Cargando localidades...</Text>
-                    </View>
-                  ) : (
-                    localidades
-                      .filter(l => l.nombre.toLowerCase().includes(searchLocalidad.toLowerCase()))
-                      .map(l => (
-                        <TouchableOpacity key={l.id} style={[s.dropI, form.localidad === l.nombre && s.dropIA]} onPress={() => { set('localidad', l.nombre); setShowLocalidades(false); setSearchLocalidad(''); }}>
-                          <Text style={[s.dropIT, form.localidad === l.nombre && s.dropITA]}>{l.nombre}</Text>
-                        </TouchableOpacity>
-                      ))
-                  )}
+                  {MUNICIPIOS_HIDALGO
+                    .filter(m => m.toLowerCase().includes(searchMuni.toLowerCase()))
+                    .map(m => (
+                      <TouchableOpacity key={m} style={[s.dropI, form.municipio === m && s.dropIA]} onPress={() => { set('municipio', m); setShowMunis(false); setSearchMuni(''); }}>
+                        <Text style={[s.dropIT, form.municipio === m && s.dropITA]}>{m}</Text>
+                      </TouchableOpacity>
+                    ))
+                  }
                 </ScrollView>
               </View>
             )}
+            <Text style={s.lbl}>Localidad / Ejido *</Text>
+            <TextInput style={s.inp} value={form.localidad} onChangeText={v => set('localidad', v)} placeholder="Escribe la localidad o ejido" placeholderTextColor={Colors.gray400} />
           </View>
 
           <View style={s.sec}><Text style={s.secT}>🌾 Datos Agrícolas</Text>
@@ -258,6 +277,4 @@ const s = StyleSheet.create({
   noAcc: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 40 },
   noAccT: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   noAccD: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  loadingLocalidades: { padding: 13, alignItems: 'center' },
-  loadingLocalidadesText: { fontSize: 13, color: Colors.textSecondary },
 });

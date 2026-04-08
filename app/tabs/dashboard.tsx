@@ -41,8 +41,12 @@ const mergeAsignaciones = (cached: Asignacion[], fresh: Asignacion[]): Asignacio
 
 const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
   if (!tecnicoId) return true;
-  if (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '') return true;
-  return String(asignacion.id_tecnico).trim() === String(tecnicoId).trim();
+  // Si es asignación de tipo beneficiario y no tiene id_tecnico, permitirla
+  if (asignacion.tipo_asignacion === 'beneficiario' && 
+      (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '')) {
+    return true;
+  }
+  return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
 };
 
 const sortAsignaciones = (items: Asignacion[]) =>
@@ -353,11 +357,16 @@ const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
     const ini = nombreVisible.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
     const tc = TC[item.tipo_asignacion ?? 'actividad'] ?? Colors.gray500;
     return (
-      <TouchableOpacity
-        style={[s.card, item.completado && s.cardDone]}
-        onPress={() => router.push({ pathname: '/stack/detalle-asignacion', params: { id: String(item.id_asignacion) } })}
-        activeOpacity={0.75}
-      >
+        <TouchableOpacity
+          style={[s.card, item.completado && s.cardDone]}
+          onPress={() => {
+            // Usar id_beneficiario directamente ya que es el ID real de la base de datos
+            const navigateId = item.id_beneficiario ?? item.id_asignacion ?? item.id;
+            console.log('[DASHBOARD NAV] To detalle id:', navigateId, 'full item:', {id: item.id, id_asignacion: item.id_asignacion, id_beneficiario: item.id_beneficiario});
+            router.push({ pathname: '/stack/detalle-asignacion', params: { id: String(navigateId) } });
+          }}
+          activeOpacity={0.75}
+        >
         <View style={[s.av, { backgroundColor: tc }]}><Text style={s.avT}>{ini}</Text></View>
         <View style={s.body}>
           <View style={s.row}>

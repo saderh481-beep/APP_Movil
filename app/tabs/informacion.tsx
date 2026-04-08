@@ -196,10 +196,14 @@ export default function Informacion() {
 
         {/* Crédito Universidad */}
         <View style={s.card}>
-          <Text style={s.cardT}>🎓 Crédito Universitario</Text>
+          <Text style={s.cardT}>🎓 Universidad</Text>
           <View style={s.uniInfo}>
-            <Text style={s.uniIcon}>🎓</Text>
-            <Text style={s.uniText}>Desarrollado en colaboración con institución educativa</Text>
+            <Image source={require('@/assets/images/logo-UTMIR.svg.jpeg')} style={s.uniLogo} resizeMode="contain" />
+          </View>
+          <View style={s.devSection}>
+            <Text style={s.devTitle}>Desarrolladores:</Text>
+            <Text style={s.devName}>Jesus Aldair Quintana Samperio</Text>
+            <Text style={s.devName}>Erick Angel Tenorio Alcantara</Text>
           </View>
         </View>
 
@@ -256,6 +260,10 @@ const s = StyleSheet.create({
   modalBtnT: { fontSize: 15, fontWeight: '700', color: Colors.white, textAlign: 'center' },
   // Universidad
   uniInfo: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 12 },
+  uniLogo: { width: 120, height: 50 },
   uniIcon: { fontSize: 28, marginRight: 4 },
   uniText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
+  devSection: { marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.gray100 },
+  devTitle: { fontSize: 12, fontWeight: '600', color: Colors.guinda, marginBottom: 8 },
+  devName: { fontSize: 12, color: Colors.textPrimary, marginBottom: 4 },
 });

@@ -1,0 +1,210 @@
+INSTRUCCIONES EAS UPDATE - SADERH
+
+1. QUE ES EAS UPDATE
+
+EAS Update sirve para enviar actualizaciones OTA (Over The Air) a la app ya instalada,
+sin volver a generar APK o AAB, siempre que los cambios no sean nativos.
+
+Sirve para actualizar:
+- Pantallas
+- Lógica en JavaScript o TypeScript
+- Estilos
+- Textos
+- Imágenes y assets
+
+NO sirve por sí solo cuando cambias:
+- Dependencias nativas
+- Plugins de Expo
+- Permisos
+- app.json
+- SDK de Expo
+- Configuración Android o iOS nativa
+
+En esos casos necesitas una nueva build.
+
+
+2. COMO QUEDO CONFIGURADO ESTE PROYECTO
+
+Canales configurados:
+- development
+- staging
+- production
+
+Perfiles de build:
+- development -> canal development
+- preview -> canal staging
+- apk -> canal staging
+- production -> canal production
+
+Scripts disponibles en package.json:
+- npm run build:apk
+- npm run build:preview
+- npm run build:prod
+- npm run update:staging -- --message "Tu mensaje"
+- npm run update:prod -- --message "Tu mensaje"
+
+
+3. PRIMER USO O CUANDO CAMBIA ALGO NATIVO
+
+Cuando agregues algo nativo o sea la primera vez que quieres usar EAS Update,
+primero debes generar una nueva build:
+
+Beta compartible:
+npm run build:apk
+
+Producción:
+npm run build:prod
+
+La app instalada desde esa build ya podrá recibir updates OTA del canal correspondiente.
+
+
+4. FLUJO NORMAL PARA BETA
+
+Paso 1: hacer cambios en frontend
+
+Ejemplos:
+- corregir login
+- ajustar dashboard
+- cambiar textos
+- mejorar diseño
+
+Paso 2: publicar update al canal staging
+
+Comando:
+npm run update:staging -- --message "Corrección de login y dashboard"
+
+Paso 3: abrir la app instalada desde la build beta
+
+La app buscará la actualización y la aplicará al reiniciar o reabrir,
+según el comportamiento de Expo Updates.
+
+
+5. FLUJO NORMAL PARA PRODUCCION
+
+Cuando ya probaste en staging y quieres mandar el cambio a producción:
+
+Comando:
+npm run update:prod -- --message "Versión 1.0.1"
+
+Eso publica el update al canal production.
+
+
+6. CUANDO NECESITAS UNA NUEVA BUILD
+
+Debes generar un nuevo APK o AAB si cambias:
+- expo install de una librería nativa nueva
+- expo-updates config
+- app.json
+- iconos o splash nativos importantes
+- permisos Android o iOS
+- plugins
+- versión SDK de Expo
+
+En esos casos:
+
+Para beta:
+npm run build:apk
+
+Para producción:
+npm run build:prod
+
+
+7. COMANDOS MAS IMPORTANTES
+
+Publicar update a beta:
+npm run update:staging -- --message "Mensaje de cambio"
+
+Publicar update a producción:
+npm run update:prod -- --message "Mensaje de cambio"
+
+Crear APK beta:
+npm run build:apk
+
+Crear build de producción:
+npm run build:prod
+
+Ver builds:
+npx eas-cli build:list --platform android --limit 5
+
+
+8. EJEMPLOS PRACTICOS
+
+Ejemplo A: solo cambiaste textos y colores
+No necesitas nueva build.
+Usa:
+npm run update:staging -- --message "Ajuste visual en dashboard"
+
+Ejemplo B: corregiste una validación en login
+No necesitas nueva build.
+Usa:
+npm run update:staging -- --message "Corrección de validación en login"
+
+Ejemplo C: agregaste expo-notifications o cambiaste permisos
+Sí necesitas nueva build.
+Usa:
+npm run build:apk
+
+Ejemplo D: actualizaste Expo SDK
+Sí necesitas nueva build.
+Usa:
+npm run build:apk
+
+
+9. RECOMENDACION DE FLUJO
+
+Flujo recomendado:
+
+1. Hacer cambios
+2. Probar local
+3. Publicar a staging con EAS Update
+4. Probar en APK beta instalada
+5. Si todo está bien, publicar a production con EAS Update
+6. Solo generar nueva build cuando haya cambios nativos
+
+
+10. BUENAS PRACTICAS
+
+- Siempre usa mensajes claros en --message
+- Publica primero en staging antes de production
+- No mezcles cambios nativos con updates OTA pensando que se aplicarán solos
+- Si cambias algo sensible, prueba primero en una build beta instalada
+- Mantén versionado claro en tus mensajes
+
+Ejemplos de mensajes:
+- "Hotfix login 1.0.1"
+- "Corrección de sincronización de bitácoras"
+- "Mejora visual en alta de beneficiario"
+
+
+11. COMANDO RECOMENDADO PARA EL DIA A DIA
+
+Para beta:
+npm run update:staging -- --message "Describe aquí tu cambio"
+
+Para producción:
+npm run update:prod -- --message "Describe aquí tu cambio"
+
+
+12. SI ALGO FALLA
+
+Si el update no se refleja:
+- verifica que la app instalada venga de una build nueva con expo-updates configurado
+- revisa que estés publicando al canal correcto
+- reinicia completamente la app
+- confirma que no hiciste cambios nativos
+- revisa builds y updates en Expo Dashboard
+
+
+13. RESUMEN RAPIDO
+
+Cambios JS/TS/UI/assets:
+usa EAS Update
+
+Cambios nativos/SDK/permisos/plugins:
+haz nueva build
+
+Beta:
+npm run update:staging -- --message "mensaje"
+
+Producción:
+npm run update:prod -- --message "mensaje"

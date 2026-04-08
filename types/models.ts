@@ -29,10 +29,13 @@ export interface Beneficiario {
   curp?: string;
   folio_saderh?: string;
   cadena_productiva?: string;
+  tecnico_id?: string | null;
   id_beneficiario?: string;
   latitud_predio?: number | null;
   longitud_predio?: number | null;
   activo: boolean;
+  created_at?: string;
+  updated_at?: string;
   cadenas?: Array<{
     id: string;
     nombre: string;
@@ -108,6 +111,7 @@ export interface CrearBeneficiarioPayload {
   folio_saderh: string;
   cadena_productiva: string;
   telefono_contacto: string;
+  tecnico_id: string;
 }
 
 export interface Bitacora {

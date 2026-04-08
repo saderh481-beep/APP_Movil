@@ -40,8 +40,12 @@ const getBitacoraDraftKey = (tecnicoId?: string, asignacionId?: string) =>
   `@saderh:draft:bitacora:${tecnicoId ?? 'anon'}:${asignacionId ?? 'sin-asignacion'}`;
 const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
   if (!tecnicoId) return true;
-  if (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '') return true;
-  return String(asignacion.id_tecnico).trim() === String(tecnicoId).trim();
+  // Si es asignación de tipo beneficiario y no tiene id_tecnico, permitirla
+  if (asignacion.tipo_asignacion === 'beneficiario' && 
+      (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '')) {
+    return true;
+  }
+  return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
 };
 
 const pathFromStroke = (stroke: Trazo): string => {
@@ -287,13 +291,62 @@ export default function DetalleAsignacion() {
     let active = true;
     const load = async () => {
       const rawId = String(id ?? '');
-      const idNum = Number.parseInt(rawId, 10);
+      console.log('[DETALLE LOAD] rawId:', rawId, 'tecnico:', tecnico?.id);
+      
       try {
+        console.log('[DETALLE] Calling asignacionesApi.listar()...');
         const res = await asignacionesApi.listar();
+        console.log('[DETALLE] API response keys:', Object.keys(res));
         if (!active) return;
-        const visibles = (res.asignaciones ?? []).filter((a) => tecnicoMatches(a, tecnico?.id));
-        setAsig(visibles.find((a) => String(a.id_asignacion ?? a.id) === rawId || (!Number.isNaN(idNum) && String(a.id_asignacion ?? a.id) === String(idNum))) ?? null);
-      } catch {
+        
+        const allAsigs = res.asignaciones ?? [];
+        console.log('[DETALLE] Total asignaciones from API:', allAsigs.length);
+        
+        // Mostrar los primeros 3 IDs completos para debug
+        if (allAsigs.length > 0) {
+          console.log('[DETALLE] Sample IDs:', allAsigs.slice(0, 3).map(a => ({
+            id: a.id,
+            id_asignacion: a.id_asignacion,
+            id_beneficiario: a.id_beneficiario,
+            beneficiario_id: a.beneficiario?.id
+          })));
+        }
+        
+        const visibles = allAsigs.filter((a) => tecnicoMatches(a, tecnico?.id));
+        console.log('[DETALLE] Visibles after filter:', visibles.length, 'tecnicoId:', tecnico?.id);
+        
+        // Búsqueda más simple: buscar por cualquier campo de ID
+        let found = visibles.find((a) => {
+          const searchFields = [
+            a.id,
+            a.id_asignacion,
+            a.id_beneficiario,
+            a.beneficiario?.id,
+            a.beneficiario?.id_beneficiario
+          ].filter(Boolean);
+          
+          return searchFields.some(field => String(field) === rawId);
+        });
+        
+        console.log('[DETALLE] Found:', found ? {
+          id: found.id, 
+          id_asignacion: found.id_asignacion, 
+          id_beneficiario: found.id_beneficiario,
+          nombre: found.nombre
+        } : 'none');
+        
+        if (!found) {
+          // Debug: buscar por coincidencia parcial (si el ID contiene el otro)
+          found = visibles.find((a) => {
+            const searchFields = [a.id, a.id_asignacion, a.id_beneficiario, a.beneficiario?.id].filter(Boolean);
+            return searchFields.some(field => rawId.includes(String(field)) || String(field).includes(rawId));
+          });
+          if (found) console.log('[DETALLE] Found (partial match):', {id_asignacion: found.id_asignacion, id_beneficiario: found.id_beneficiario});
+        }
+        
+        setAsig(found ?? null);
+      } catch (err) {
+        console.error('[DETALLE] Error loading asignaciones:', err);
         try {
           const rawCache = await AsyncStorage.getItem(getAsignacionesCacheKey(tecnico?.id));
           const parsed = rawCache ? JSON.parse(rawCache) : [];
@@ -301,8 +354,20 @@ export default function DetalleAsignacion() {
             ? (parsed as Asignacion[])
             : (Array.isArray(parsed?.data) ? parsed.data as Asignacion[] : []);
           const visibles = arr.filter((a) => tecnicoMatches(a, tecnico?.id));
-          const found = visibles.find((a) => String(a.id_asignacion ?? a.id) === rawId || (!Number.isNaN(idNum) && Number(a.id_asignacion) === idNum)) ?? null;
-          if (active) setAsig(found);
+          console.log('[DETALLE] Cache visibles:', visibles.length);
+          
+          let found = visibles.find((a) => {
+            const searchFields = [
+              a.id,
+              a.id_asignacion,
+              a.id_beneficiario,
+              a.beneficiario?.id,
+              a.beneficiario?.id_beneficiario
+            ].filter(Boolean);
+            return searchFields.some(field => String(field) === rawId);
+          });
+          
+          if (active) setAsig(found ?? null);
         } catch {
           if (active) setAsig(null);
         }
@@ -481,7 +546,8 @@ export default function DetalleAsignacion() {
       }
       const tipoAsignacion = (asig?.tipo_asignacion ?? 'actividad') as 'beneficiario' | 'actividad';
 
-      const beneficiarioId = cleanUuid(asig?.id_beneficiario ?? asig?.beneficiario?.id ?? asig?.beneficiario?.id_beneficiario);
+      const beneficiarioId = cleanUuid((asig?.id_beneficiario ?? asig?.beneficiario?.id ?? asig?.beneficiario?.id_beneficiario) || String(id).replace(/^beneficiario-/, ''));
+      console.log('[FINALIZAR] Extracted beneficiarioId:', beneficiarioId);
       const actividadId = cleanUuid(
         tipoAsignacion === 'actividad'
           ? (asig?.id_asignacion ?? asig?.id)
@@ -530,7 +596,7 @@ export default function DetalleAsignacion() {
       firmaUri = await crearArchivoFirma();
 
       try {
-        const creada = await bitacorasApi.crear({
+        const response = await bitacorasApi.crear({
           tipo: payload.tipo,
           beneficiario_id: tipoAsignacion === 'beneficiario' ? beneficiarioId : undefined,
           cadena_productiva_id: cadenaProductivaId,
@@ -538,12 +604,26 @@ export default function DetalleAsignacion() {
           fecha_inicio: startedAt,
           coord_inicio: `${currentGps.lat},${currentGps.lon}`,
         });
-        const idBitacora =
-          (creada as any)?.id_bitacora ??
-          (creada as any)?.id ??
-          (creada as any)?.data?.id_bitacora ??
-          (creada as any)?.data?.id;
-        if (!idBitacora) throw new Error('La API no devolvió id de bitácora.');
+        
+        console.log('[BITACORA] Crear response:', JSON.stringify(response));
+        
+        let idBitacora: string | null = null;
+        
+        if (typeof response === 'string') {
+          idBitacora = response;
+        } else if (response && typeof response === 'object') {
+          idBitacora = 
+            (response as any)?.id_bitacora ??
+            (response as any)?.id ??
+            (response as any)?.data?.id_bitacora ??
+            (response as any)?.data?.id ??
+            (response as any)?.data?.id_bitacora ??
+            null;
+        }
+        
+        console.log('[BITACORA] idBitacora extraído:', idBitacora);
+        
+        if (!idBitacora) throw new Error('La API no devolvió id de bitácora. Response: ' + JSON.stringify(response));
 
         await bitacorasApi.editar(idBitacora, {
           coord_inicio: payload.coord_inicio,
@@ -559,7 +639,24 @@ export default function DetalleAsignacion() {
         await bitacorasApi.subirFotoRostro(idBitacora, fotoRostro);
         await bitacorasApi.subirFirma(idBitacora, firmaUri);
         if (fotosCampo.length) await bitacorasApi.subirFotosCampo(idBitacora, fotosCampo);
-        await bitacorasApi.cerrar(idBitacora, { fecha_fin: now, coord_fin: `${currentGps.lat},${currentGps.lon}` });
+        
+        // Cerrar bitacora - manejar respuesta exitosa aunque PDF falle
+        try {
+          const cierreResult = await bitacorasApi.cerrar(idBitacora, { fecha_fin: now, coord_fin: `${currentGps.lat},${currentGps.lon}` });
+          // Éxito si el estado es "cerrada" (aunque PDF haya fallado)
+          if (cierreResult.estado !== 'cerrada') {
+            console.warn('[BITACORA] Cierre con estado inesperado:', cierreResult.estado);
+          }
+        } catch (cerrarError: any) {
+          // Si el error es 400/404, mostrar mensaje pero considerar completado
+          const status = cerrarError?.response?.status;
+          if (status === 400 || status === 404) {
+            console.warn('[BITACORA] Error en cierre:', cerrarError.message);
+          } else {
+            throw cerrarError; // Relanzar otros errores
+          }
+        }
+        
         setOffline(false);
         await AsyncStorage.removeItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion ?? id)));
         await AsyncStorage.removeItem(BITACORAS_CERRADAS_CACHE_KEY);
@@ -598,6 +695,7 @@ export default function DetalleAsignacion() {
   }
 
   if (!asig) {
+    console.error('[DETALLE] No asignacion loaded for id:', id, 'tecnicoId:', tecnico?.id);
     return (
       <SafeAreaView style={s.safe}>
         <View style={s.header}>
@@ -609,6 +707,11 @@ export default function DetalleAsignacion() {
         </View>
         <View style={s.center}>
           <Text style={s.emptyTitle}>Asignación no encontrada</Text>
+          <Text style={s.muted}>ID: {String(id).slice(-12)}</Text>
+          <Text style={s.muted}>Técnico: {tecnico?.id}</Text>
+          <TouchableOpacity style={s.primaryBtn} onPress={() => router.back()}>
+            <Text style={s.primaryBtnText}>Volver al dashboard</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

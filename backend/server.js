@@ -243,8 +243,202 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // GET /bitacoras - Listar todas las bitácoras del técnico
     if (req.method === 'GET' && url.pathname === '/bitacoras') {
-      await emptyProtected(req, res, []);
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
+      const estado = url.searchParams.get('estado');
+      
+      try {
+        let query = sql`
+          SELECT * FROM bitacoras 
+          WHERE tecnico_id = ${tecnicoId}
+        `;
+        
+        if (estado) {
+          query = sql`${query} AND estado = ${estado}`;
+        }
+        
+        query = sql`${query} ORDER BY created_at DESC LIMIT 50`;
+        
+        const bitacoras = await query;
+        json(res, 200, { success: true, data: bitacoras, total: bitacoras.length });
+      } catch (dbError) {
+        console.error('[GET /bitacoras] Error DB:', dbError);
+        json(res, 200, { success: true, data: [], total: 0 });
+      }
+      return;
+    }
+
+    // GET /bitacoras/:id - Obtener una bitácora por ID
+    if (req.method === 'GET' && url.pathname.match(/^\/bitacoras\/[\w-]+$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      
+      try {
+        const bitacoras = await sql`
+          SELECT * FROM bitacoras 
+          WHERE id = ${bitacoraId}
+          LIMIT 1
+        `;
+        
+        if (!bitacoras.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, data: bitacoras[0] });
+      } catch (dbError) {
+        console.error('[GET /bitacoras/:id] Error DB:', dbError);
+        json(res, 500, { error: 'Error al obtener bitácora' });
+      }
+      return;
+    }
+
+    // POST /bitacoras - Crear nueva bitácora
+    if (req.method === 'POST' && url.pathname === '/bitacoras') {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
+      const body = await readBody(req);
+      
+      try {
+        const id = body.id || `bitacora-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const tipo = body.tipo || 'beneficiario';
+        const beneficiarioId = body.beneficiario_id || null;
+        const cadenaProductivaId = body.cadena_productiva_id || null;
+        const actividadId = body.actividad_id || null;
+        const fechaInicio = body.fecha_inicio || new Date().toISOString();
+        const coordInicio = body.coord_inicio || null;
+        
+        const result = await sql`
+          INSERT INTO bitacoras (
+            id, tipo, estado, tecnico_id, beneficiario_id, 
+            cadena_productiva_id, actividad_id, fecha_inicio, coord_inicio,
+            created_at, updated_at
+          ) VALUES (
+            ${id}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId},
+            ${cadenaProductivaId}, ${actividadId}, ${fechaInicio}, ${coordInicio},
+            NOW(), NOW()
+          )
+          RETURNING *
+        `;
+        
+        json(res, 201, { success: true, id_bitacora: id, id: id, data: result[0] });
+      } catch (dbError) {
+        console.error('[POST /bitacoras] Error DB:', dbError);
+        json(res, 500, { error: 'Error al crear bitácora' });
+      }
+      return;
+    }
+
+    // PATCH /bitacoras/:id - Actualizar bitácora
+    if (req.method === 'PATCH' && url.pathname.match(/^\/bitacoras\/[\w-]+$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
+      
+      try {
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+        
+        const fields = [
+          'coord_inicio', 'coord_fin', 'fecha_inicio', 'fecha_fin',
+          'observaciones_coordinador', 'actividades_desc', 'recomendaciones',
+          'comentarios_beneficiario', 'estado'
+        ];
+        
+        for (const field of fields) {
+          if (body[field] !== undefined) {
+            const dbField = field.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+            updates.push(`${dbField} = $${paramIndex}`);
+            values.push(body[field]);
+            paramIndex++;
+          }
+        }
+        
+        if (updates.length === 0) {
+          json(res, 400, { error: 'No hay campos para actualizar' });
+          return;
+        }
+        
+        values.push(bitacoraId);
+        
+        const result = await sql`
+          UPDATE bitacoras 
+          SET ${sql(updates.join(', '))}, updated_at = NOW()
+          WHERE id = $${paramIndex}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, data: result[0] });
+      } catch (dbError) {
+        console.error('[PATCH /bitacoras/:id] Error DB:', dbError);
+        json(res, 500, { error: 'Error al actualizar bitácora' });
+      }
+      return;
+    }
+
+    // POST /bitacoras/:id/cerrar - Cerrar bitácora
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/cerrar$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
+      
+      try {
+        const fechaFin = body.fecha_fin || new Date().toISOString();
+        const coordFin = body.coord_fin || null;
+        
+        const result = await sql`
+          UPDATE bitacoras 
+          SET estado = 'cerrada', 
+              fecha_fin = ${fechaFin}, 
+              coord_fin = ${coordFin},
+              updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, estado: 'cerrada', data: result[0] });
+      } catch (dbError) {
+        console.error('[POST /bitacoras/:id/cerrar] Error DB:', dbError);
+        json(res, 500, { error: 'Error al cerrar bitácora' });
+      }
       return;
     }
 
@@ -254,7 +448,65 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/asignaciones') {
-      await emptyProtected(req, res, { success: true, asignaciones: [], total: 0 });
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
+      console.log('[GET /asignaciones] tecnicoId from token:', tecnicoId);
+
+      try {
+        // Obtener beneficiarios reales del tecnico
+        const beneficiarios = await sql`
+          SELECT 
+            id, nombre_completo, curp, municipio, localidad, 
+            folio_saderh, cadena_productiva, telefono_contacto,
+            tecnico_id, activo, created_at, updated_at
+          FROM beneficiarios 
+          WHERE tecnico_id = ${tecnicoId} AND activo = true
+          ORDER BY created_at DESC
+        `;
+
+        console.log('[GET /asignaciones] Beneficiarios found:', beneficiarios.length);
+
+        // Convertir beneficiarios a formato de asignacion
+        const asignaciones = beneficiarios.map((b) => ({
+          id: b.id,
+          id_asignacion: b.id,
+          id_tecnico: b.tecnico_id,
+          id_beneficiario: b.id,
+          nombre: b.nombre_completo,
+          descripcion: b.cadena_productiva ?? 'Seguimiento de beneficiario',
+          tipo_asignacion: 'beneficiario',
+          descripcion_actividad: 'Visita de seguimiento',
+          prioridad: 'MEDIA',
+          activo: b.activo,
+          completado: false,
+          fecha_limite: new Date().toISOString().split('T')[0],
+          created_at: b.created_at,
+          updated_at: b.updated_at,
+          beneficiario: {
+            id: b.id,
+            id_beneficiario: b.id,
+            nombre: b.nombre_completo,
+            nombre_completo: b.nombre_completo,
+            curp: b.curp,
+            municipio: b.municipio,
+            localidad: b.localidad,
+            folio_saderh: b.folio_saderh,
+            cadena_productiva: b.cadena_productiva,
+            telefono_contacto: b.telefono_contacto,
+            activo: b.activo,
+          },
+        }));
+
+        json(res, 200, { success: true, asignaciones: asignaciones, total: asignaciones.length });
+      } catch (dbError) {
+        console.error('[GET /asignaciones] Error DB:', dbError);
+        json(res, 200, { success: true, asignaciones: [], total: 0 });
+      }
       return;
     }
 

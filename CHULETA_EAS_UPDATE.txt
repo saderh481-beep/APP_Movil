@@ -1,0 +1,85 @@
+CHULETA RAPIDA EAS UPDATE - SADERH
+
+1. SI SOLO CAMBIASTE FRONTEND
+
+Usa update OTA, NO nueva build.
+
+Ejemplos:
+- pantallas
+- estilos
+- textos
+- lógica JS/TS
+- assets
+
+Beta:
+npm run update:staging -- --message "Describe tu cambio"
+
+Producción:
+npm run update:prod -- --message "Describe tu cambio"
+
+
+2. SI CAMBIASTE ALGO NATIVO
+
+Sí necesitas nueva build.
+
+Ejemplos:
+- app.json
+- permisos
+- plugins
+- SDK Expo
+- librerías nativas
+
+Beta:
+npm run build:apk
+
+Producción:
+npm run build:prod
+
+
+3. FLUJO RECOMENDADO
+
+1. Haces cambios
+2. Pruebas local
+3. Publicas a staging
+4. Pruebas en APK instalada
+5. Si todo está bien, publicas a production
+
+
+4. COMANDOS CLAVE
+
+Publicar beta:
+npm run update:staging -- --message "Hotfix dashboard"
+
+Publicar producción:
+npm run update:prod -- --message "Versión 1.0.1"
+
+Crear APK:
+npm run build:apk
+
+Crear build producción:
+npm run build:prod
+
+Ver builds:
+npx eas-cli build:list --platform android --limit 5
+
+
+5. REGLA DE ORO
+
+Si cambiaste JS/TS/UI -> EAS Update
+Si cambiaste algo nativo -> nueva build
+
+
+
+------------------------------------------------
+. Crear una build (APK) Inicial
+Debes generar una nueva APK/AAB con esta configuración para que la app sepa buscar actualizaciones. 
+Expo Documentation
+Expo Documentation
+bash
+--eas build --platform android --profile production<---->COMANDOS
+Instala esta APK en los dispositivos de prueba.
+5. Publicar un cambio (Actualización Automática)
+Cuando hagas cambios en tu código (JS/TS), ya no necesitas generar otra APK. Ejecuta:
+bash
+"eas update --channel production --message "Descripción de la actualización""<---->COMANDOS
+Al publicar esto, la próxima vez que los usuarios abran la app, descargarán la actualización automáticamente. 

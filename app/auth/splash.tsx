@@ -3,7 +3,7 @@ import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
 import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 const W = Dimensions.get('window').width;
 
@@ -50,7 +50,7 @@ export default function Splash() {
       <Animated.View style={[s.logo, { opacity, transform: [{ scale }] }]}>
         {/* Icono del gobierno - escudo */}
         <View style={s.escudo}>
-          <Text style={s.escudoT}>🛡️</Text>
+          <Image source={require('@/assets/images/Logo_Gobierno.svg.jpeg')} style={s.logoImg} resizeMode="contain" />
         </View>
         
         <Text style={s.title}>SADERH</Text>
@@ -89,7 +89,8 @@ export default function Splash() {
 const s = StyleSheet.create({
   c: { flex: 1, backgroundColor: Colors.guinda, alignItems: 'center', justifyContent: 'center', paddingHorizontal: rw(20) },
   logo: { alignItems: 'center', gap: 14 },
-  escudo: { width: 80, height: 80, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  escudo: { width: 120, height: 80, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  logoImg: { width: 120, height: 80 },
   escudoT: { fontSize: 60 },
   title: { fontSize: 58, fontWeight: '900', color: Colors.white, letterSpacing: 5 },
   line: { height: 3, backgroundColor: Colors.dorado, borderRadius: 2 },

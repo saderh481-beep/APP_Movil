@@ -67,6 +67,7 @@ export const normalizeBeneficiario = (raw: unknown): Beneficiario => {
     curp: rec.curp ? String(rec.curp) : undefined,
     folio_saderh: rec.folio_saderh ? String(rec.folio_saderh) : undefined,
     cadena_productiva: rec.cadena_productiva ? String(rec.cadena_productiva) : undefined,
+    tecnico_id: rec.tecnico_id ? String(rec.tecnico_id) : undefined,
     latitud_predio: typeof rec.latitud_predio === 'number' ? rec.latitud_predio : null,
     longitud_predio: typeof rec.longitud_predio === 'number' ? rec.longitud_predio : null,
     activo: toBoolean(rec.activo, true),

@@ -15,7 +15,11 @@ export const beneficiariosApi = {
     
     const json = await http<unknown>('GET', '/mis-beneficiarios', undefined, token);
     const data = unwrapData(json);
-    const arr = asArray<unknown>(isRecord(data) && data.beneficiarios ? data.beneficiarios : data);
+    const arr = asArray<unknown>(
+      isRecord(data) && data.beneficiarios ? data.beneficiarios :
+      isRecord(data) && data.beneficiaries ? data.beneficiaries :
+      data
+    );
     let list = arr.map(raw => normalizeBeneficiario(raw)).filter(b => b.id && (b.nombre || b.nombre_completo));
 
     if (search && search.trim().length > 0) {
