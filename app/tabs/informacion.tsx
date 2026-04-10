@@ -148,73 +148,107 @@ export default function Informacion() {
 
   return (
     <SafeAreaView style={s.cont} edges={['top']}>
-      <View style={s.header}><Text style={s.hT}>Mi Perfil</Text></View>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={s.avSec}>
-          <View style={s.av}><Text style={s.avT}>{ini}</Text></View>
-          <Text style={s.nom}>{tecnico?.nombre ?? '—'}</Text>
-          <Text style={s.rol}>Técnico de Campo</Text>
+      <View style={s.header}>
+        <Text style={s.hT}>Mi Perfil</Text>
+      </View>
+      
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+        <View style={s.profileCard}>
+          <View style={s.avatarBox}>
+            <View style={s.avatar}>
+              <Text style={s.avatarText}>{ini}</Text>
+            </View>
+            <View style={s.avatarStatus}>
+              <Text style={s.avatarStatusText}>✓ Activo</Text>
+            </View>
+          </View>
+          <Text style={s.profileName}>{tecnico?.nombre ?? '—'}</Text>
+          <Text style={s.profileRole}>Técnico de Campo</Text>
         </View>
 
         <View style={s.card}>
-          <Text style={s.cardT}>👤 Información Personal</Text>
-          <Row l="Nombre" v={tecnico?.nombre ?? '—'} />
-          <Row l="Rol" v="Técnico de Campo" />
-          <Row l="Código" v="•••••" />
+          <View style={s.cardHeader}>
+            <View style={s.cardIcon}><Text style={s.cardIconText}>👤</Text></View>
+            <Text style={s.cardTitle}>Información Personal</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Nombre</Text>
+            <Text style={s.infoValue}>{tecnico?.nombre ?? '—'}</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Rol</Text>
+            <Text style={s.infoValue}>Técnico de Campo</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Código</Text>
+            <Text style={s.infoValue}>•••••</Text>
+          </View>
         </View>
 
-        {/* Sección de Datos y Respaldo */}
         <View style={s.card}>
-          <Text style={s.cardT}>💾 Datos y Respaldo</Text>
+          <View style={s.cardHeader}>
+            <View style={s.cardIcon}><Text style={s.cardIconText}>💾</Text></View>
+            <Text style={s.cardTitle}>Datos y Respaldo</Text>
+          </View>
           <Text style={s.cardDesc}>Exporta una copia de seguridad de tus datos locales.</Text>
-          <TouchableOpacity 
-            style={[s.btnExport, descargando && s.btnDisabled]} 
-            onPress={exportarDatos}
-            disabled={descargando}
-          >
-            <Text style={s.btnExportT}>
+          <TouchableOpacity style={s.exportBtn} onPress={exportarDatos} disabled={descargando}>
+            <Text style={s.exportBtnText}>
               {descargando ? '⏳ Exportando...' : '📥 Exportar Mis Datos'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Términos y Condiciones */}
         <View style={s.card}>
-          <Text style={s.cardT}>📋 Legal</Text>
-          <TouchableOpacity style={s.btnTerminos} onPress={() => setShowTerminos(true)}>
-            <Text style={s.btnTerminosT}>📜 Ver Términos y Condiciones</Text>
+          <View style={s.cardHeader}>
+            <View style={s.cardIcon}><Text style={s.cardIconText}>📋</Text></View>
+            <Text style={s.cardTitle}>Legal</Text>
+          </View>
+          <TouchableOpacity style={s.legalBtn} onPress={() => setShowTerminos(true)}>
+            <Text style={s.legalBtnText}>📜 Términos y Condiciones</Text>
           </TouchableOpacity>
         </View>
 
         <View style={s.card}>
-          <Text style={s.cardT}>ℹ️ Acerca de SADERH</Text>
-          <Row l="Versión" v="1.0.0" />
-          <Row l="SDK" v="Expo 55 · React Native 0.83" />
-          <Row l="Gobierno" v="Estado de Hidalgo" />
-          <Row l="Dependencia" v="Secretaría de Agricultura" />
+          <View style={s.cardHeader}>
+            <View style={s.cardIcon}><Text style={s.cardIconText}>ℹ️</Text></View>
+            <Text style={s.cardTitle}>Acerca de SADERH</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Versión</Text>
+            <Text style={s.infoValue}>1.0.0</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>SDK</Text>
+            <Text style={s.infoValue}>Expo 55 · RN 0.83</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Gobierno</Text>
+            <Text style={s.infoValue}>Estado de Hidalgo</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Dependencia</Text>
+            <Text style={s.infoValue}>SAGRUH</Text>
+          </View>
         </View>
 
-        {/* Crédito Universidad */}
         <View style={s.card}>
-          <Text style={s.cardT}>🎓 Universidad</Text>
-          <View style={s.uniInfo}>
-            <Image source={require('@/assets/images/logo-UTMIR.svg.jpeg')} style={s.uniLogo} resizeMode="contain" />
+          <View style={s.cardHeader}>
+            <View style={s.cardIcon}><Text style={s.cardIconText}>🎓</Text></View>
+            <Text style={s.cardTitle}>Desarrolladores</Text>
           </View>
-          <View style={s.devSection}>
-            <Text style={s.devTitle}>Desarrolladores:</Text>
-            <Text style={s.devName}>Jesus Aldair Quintana Samperio</Text>
-            <Text style={s.devName}>Erick Angel Tenorio Alcantara</Text>
-          </View>
+          <Text style={s.devName}>Jesus Aldair Quintana Samperio</Text>
+          <Text style={s.devName}>Erick Angel Tenorio Alcantara</Text>
         </View>
 
-        <TouchableOpacity style={s.btnOut}
+        <TouchableOpacity style={s.logoutBtn}
           onPress={() => Alert.alert('Cerrar sesión', '¿Confirmas que deseas salir?', [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Salir', style: 'destructive', onPress: async () => { await clearAuth(); router.replace('/auth/splash'); } },
           ])}>
-          <Text style={s.btnOutT}>🚪  Cerrar Sesión</Text>
+          <Text style={s.logoutBtnText}>🚪 Cerrar Sesión</Text>
         </TouchableOpacity>
-        <View style={{ height: 40 }} />
+        
+        <View style={{ height: rh(40) }} />
       </ScrollView>
 
       <TerminosModal visible={showTerminos} onClose={() => setShowTerminos(false)} />
@@ -224,46 +258,49 @@ export default function Informacion() {
 
 const s = StyleSheet.create({
   cont: { flex: 1, backgroundColor: Colors.background },
-  header: { backgroundColor: Colors.guinda, paddingHorizontal: 20, paddingVertical: 16 },
-  hT: { fontSize: 22, fontWeight: '800', color: Colors.white },
-  avSec: { alignItems: 'center', paddingVertical: 24 },
-  av: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.guinda, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  avT: { fontSize: 28, fontWeight: '700', color: Colors.white },
-  nom: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-  rol: { fontSize: 14, color: Colors.textSecondary },
-  card: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginHorizontal: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  cardT: { fontSize: 14, fontWeight: '700', color: Colors.guinda, marginBottom: 12 },
-  cardDesc: { fontSize: 12, color: Colors.textSecondary, marginBottom: 12 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
-  rowL: { fontSize: 13, color: Colors.textSecondary },
-  rowV: { fontSize: 13, color: Colors.textPrimary, fontWeight: '500', textAlign: 'right', maxWidth: '60%' },
-  btnCfg: { marginTop: 12, padding: 12, backgroundColor: Colors.gray50, borderRadius: 10 },
-  btnCfgT: { fontSize: 13, color: Colors.guinda, fontWeight: '600', textAlign: 'center' },
-  btnOut: { marginHorizontal: 16, marginTop: 8, padding: 16, backgroundColor: Colors.danger + '15', borderRadius: 12, borderWidth: 1, borderColor: Colors.danger },
-  btnOutT: { fontSize: 15, fontWeight: '700', color: Colors.danger, textAlign: 'center' },
-  // Botón exportar
-  btnExport: { backgroundColor: Colors.guinda, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, marginTop: 8 },
-  btnExportT: { fontSize: 14, fontWeight: '700', color: Colors.white, textAlign: 'center' },
-  btnDisabled: { backgroundColor: Colors.gray400 },
-  // Botón términos
-  btnTerminos: { backgroundColor: Colors.gray100, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, marginTop: 4 },
-  btnTerminosT: { fontSize: 14, color: Colors.textPrimary, textAlign: 'center' },
+  header: { backgroundColor: Colors.guinda, paddingHorizontal: rw(20), paddingVertical: rh(16) },
+  hT: { fontSize: fontSize.xl, fontWeight: '800', color: Colors.white },
+  scrollContent: { padding: rw(16), gap: rh(12) },
+  
+  profileCard: { backgroundColor: Colors.guinda, borderRadius: radius.lg, padding: rw(20), alignItems: 'center' },
+  avatarBox: { position: 'relative', marginBottom: rh(12) },
+  avatar: { width: rw(80), height: rw(80), borderRadius: rw(40), backgroundColor: Colors.white + '20', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: Colors.dorado },
+  avatarText: { fontSize: 28, fontWeight: '700', color: Colors.white },
+  avatarStatus: { position: 'absolute', bottom: 0, right: 0, backgroundColor: Colors.success, paddingHorizontal: rw(8), paddingVertical: rh(4), borderRadius: radius.full },
+  avatarStatusText: { fontSize: fontSize.xs, fontWeight: '700', color: Colors.white },
+  profileName: { fontSize: fontSize.lg, fontWeight: '700', color: Colors.white, marginBottom: rh(4) },
+  profileRole: { fontSize: fontSize.sm, color: Colors.white + 'AA' },
+  
+  card: { backgroundColor: Colors.white, borderRadius: radius.lg, padding: rw(16), shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: rh(12) },
+  cardIcon: { width: rw(36), height: rw(36), borderRadius: rw(18), backgroundColor: Colors.guindaAlpha, alignItems: 'center', justifyContent: 'center' },
+  cardIconText: { fontSize: 18 },
+  cardTitle: { fontSize: fontSize.base, fontWeight: '700', color: Colors.textPrimary, marginLeft: rw(10) },
+  cardDesc: { fontSize: fontSize.sm, color: Colors.textSecondary, marginBottom: rh(12) },
+  
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: rh(10), borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  infoLabel: { fontSize: fontSize.sm, color: Colors.textSecondary },
+  infoValue: { fontSize: fontSize.sm, color: Colors.textPrimary, fontWeight: '600' },
+  
+  exportBtn: { backgroundColor: Colors.guinda, paddingVertical: rh(12), borderRadius: radius.md, marginTop: rh(8) },
+  exportBtnText: { fontSize: fontSize.base, fontWeight: '700', color: Colors.white, textAlign: 'center' },
+  
+  legalBtn: { backgroundColor: Colors.gray50, paddingVertical: rh(12), borderRadius: radius.md },
+  legalBtnText: { fontSize: fontSize.base, color: Colors.textPrimary, fontWeight: '600', textAlign: 'center' },
+  
+  logoutBtn: { padding: rh(14), backgroundColor: Colors.danger + '12', borderRadius: radius.md, borderWidth: 1, borderColor: Colors.danger + '30' },
+  logoutBtnText: { fontSize: fontSize.base, fontWeight: '700', color: Colors.danger, textAlign: 'center' },
+  
+  devName: { fontSize: fontSize.sm, color: Colors.textPrimary, marginTop: rh(8) },
+  
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: Colors.white, borderRadius: 20, padding: 20, maxHeight: '80%', width: '100%' },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: Colors.guinda, textAlign: 'center', marginBottom: 16 },
-  modalScroll: { maxHeight: 400 },
-  modalText: { fontSize: 13, color: Colors.textPrimary, lineHeight: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: rw(20) },
+  modalContent: { backgroundColor: Colors.white, borderRadius: radius.xl, padding: rw(20), maxHeight: '80%', width: '100%' },
+  modalTitle: { fontSize: fontSize.lg, fontWeight: '800', color: Colors.guinda, textAlign: 'center', marginBottom: rh(16) },
+  modalScroll: { maxHeight: rh(400) },
+  modalText: { fontSize: fontSize.sm, color: Colors.textPrimary, lineHeight: 22 },
   modalSubtitle: { fontWeight: '700', color: Colors.guinda },
   modalBold: { fontWeight: '700', fontStyle: 'italic' },
-  modalBtn: { backgroundColor: Colors.guinda, paddingVertical: 14, borderRadius: 10, marginTop: 16 },
-  modalBtnT: { fontSize: 15, fontWeight: '700', color: Colors.white, textAlign: 'center' },
-  // Universidad
-  uniInfo: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 12 },
-  uniLogo: { width: 120, height: 50 },
-  uniIcon: { fontSize: 28, marginRight: 4 },
-  uniText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
-  devSection: { marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.gray100 },
-  devTitle: { fontSize: 12, fontWeight: '600', color: Colors.guinda, marginBottom: 8 },
-  devName: { fontSize: 12, color: Colors.textPrimary, marginBottom: 4 },
+  modalBtn: { backgroundColor: Colors.guinda, paddingVertical: rh(14), borderRadius: radius.md, marginTop: rh(16) },
+  modalBtnT: { fontSize: fontSize.base, fontWeight: '700', color: Colors.white, textAlign: 'center' },
 });

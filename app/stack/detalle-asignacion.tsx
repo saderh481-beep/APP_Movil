@@ -733,7 +733,7 @@ export default function DetalleAsignacion() {
         <TouchableOpacity onPress={() => (paso === 3 ? router.back() : setPaso((paso - 1) as Paso))}>
           <Text style={s.headerBack}>← Atrás</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Paso {paso} de 5</Text>
+        <Text style={s.headerTitle}>Paso {paso}/5</Text>
         <View style={{ width: 60 }} />
       </View>
       <View style={s.progressBg}>
@@ -829,75 +829,95 @@ export default function DetalleAsignacion() {
       {paso === 4 && (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-            <View style={s.card}>
-              <Text style={s.title}>Formulario de visita</Text>
-              <Text style={s.label}>¿Hubo incidentes?</Text>
-              <View style={s.row}>
-                <TouchableOpacity
-                  style={[s.pillBtn, datos.hay_incidentes && s.pillBtnOn]}
-                  onPress={() => {
-                    setDato('hay_incidentes', !datos.hay_incidentes);
-                  }}
-                >
-                  <Text style={[s.pillText, datos.hay_incidentes && s.pillTextOn]}>
-                    {datos.hay_incidentes ? 'Sí' : 'No'}
-                  </Text>
-                </TouchableOpacity>
+            <View style={s.beneficiaryCard}>
+              <View style={s.beneficiaryHeader}>
+                <View style={s.beneficiaryIcon}>
+                  <Text style={s.beneficiaryIconText}>📋</Text>
+                </View>
+                <View style={s.beneficiaryTitleBox}>
+                  <Text style={s.beneficiaryTitle}>Formulario de visita</Text>
+                  <Text style={s.beneficiarySubtitle}>Paso 4 de 5</Text>
+                </View>
               </View>
+              
+              <View style={s.beneficiaryData}>
+                <Text style={s.sectionLabel}>¿Hubo incidentes durante la visita?</Text>
+                <View style={s.toggleRow}>
+                  <TouchableOpacity
+                    style={[s.toggleBtn, datos.hay_incidentes && s.toggleBtnOn]}
+                    onPress={() => setDato('hay_incidentes', true)}
+                  >
+                    <Text style={[s.toggleText, datos.hay_incidentes && s.toggleTextOn]}>Sí</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.toggleBtn, !datos.hay_incidentes && s.toggleBtnOn]}
+                    onPress={() => setDato('hay_incidentes', false)}
+                  >
+                    <Text style={[s.toggleText, !datos.hay_incidentes && s.toggleTextOn]}>No</Text>
+                  </TouchableOpacity>
+                </View>
 
-              {datos.hay_incidentes && (
-                <>
-                  <Text style={s.label}>Tipo de incidente</Text>
-                  <TextInput
-                    style={[s.inputArea, {minHeight: rh(50), marginBottom: rh(10), fontSize: fontSize.sm}]}
-                    value={datos.tipo_incidente}
-                    onChangeText={(v) => setDato('tipo_incidente', v)}
-                    placeholder="Escribe tipo de incidente (ej: Plagas, Sequía...)"
-                    placeholderTextColor={Colors.gray400}
-                  />
-                  <TextInput
-                    style={s.inputArea}
-                    value={datos.descripcion_incidente}
-                    onChangeText={(v) => setDato('descripcion_incidente', v)}
-                    placeholder="Describe el incidente..."
-                    placeholderTextColor={Colors.gray400}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </>
-              )}
+                {datos.hay_incidentes && (
+                  <View style={s.incidenteBox}>
+                    <Text style={s.fieldLabel}>Tipo de incidente</Text>
+                    <TextInput
+                      style={s.fieldInput}
+                      value={datos.tipo_incidente}
+                      onChangeText={(v) => setDato('tipo_incidente', v)}
+                      placeholder="Ej: Plagas, Sequía, Helada..."
+                      placeholderTextColor={Colors.gray400}
+                    />
+                    <Text style={s.fieldLabel}>Descripción</Text>
+                    <TextInput
+                      style={[s.fieldInput, {minHeight: rh(80)}]}
+                      value={datos.descripcion_incidente}
+                      onChangeText={(v) => setDato('descripcion_incidente', v)}
+                      placeholder="Describe los detalles del incidente..."
+                      placeholderTextColor={Colors.gray400}
+                      multiline
+                    />
+                  </View>
+                )}
 
-              <Text style={s.label}>Observaciones</Text>
-              <TextInput
-                style={s.inputArea}
-                value={datos.observaciones}
-                onChangeText={(v) => setDato('observaciones', v)}
-                placeholder="Escribe observaciones..."
-                placeholderTextColor={Colors.gray400}
-                multiline
-                numberOfLines={4}
-              />
+                <View style={s.divider} />
+
+                <Text style={s.sectionLabel}>Observaciones de la visita</Text>
+                <TextInput
+                  style={s.observacionesInput}
+                  value={datos.observaciones}
+                  onChangeText={(v) => setDato('observaciones', v)}
+                  placeholder="Escribe tus observaciones, comentarios, recomendaciones..."
+                  placeholderTextColor={Colors.gray400}
+                  multiline
+                />
+              </View>
             </View>
 
-            <View style={s.card}>
-              <Text style={s.title}>Fotos de campo (opcional)</Text>
-              <View style={s.row}>
-                <TouchableOpacity style={s.secondaryBtn} onPress={() => tomarFotoCampo(true)}>
-                  <Text style={s.secondaryBtnText}>Tomar foto</Text>
+            <View style={s.beneficiaryCard}>
+              <View style={s.photosHeader}>
+                <Text style={s.photosTitle}>📷 Fotos de campo</Text>
+                <Text style={s.photosSubtitle}>(opcional)</Text>
+              </View>
+              <View style={s.photosButtons}>
+                <TouchableOpacity style={s.photoBtn} onPress={() => tomarFotoCampo(true)}>
+                  <Text style={s.photoBtnIcon}>📷</Text>
+                  <Text style={s.photoBtnText}>Cámara</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.secondaryBtn} onPress={() => tomarFotoCampo(false)}>
-                  <Text style={s.secondaryBtnText}>Galería</Text>
+                <TouchableOpacity style={s.photoBtn} onPress={() => tomarFotoCampo(false)}>
+                  <Text style={s.photoBtnIcon}>🖼️</Text>
+                  <Text style={s.photoBtnText}>Galería</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={s.row}>
+              {fotosCampo.length > 0 && (
+                <View style={s.photosGrid}>
                   {fotosCampo.map((uri, i) => (
-                    <View key={`${uri}-${i}`}>
-                      <Image source={{ uri }} style={s.photoPreview} />
-                    </View>
+                    <Image key={`${uri}-${i}`} source={{ uri }} style={s.photoThumb} />
                   ))}
                 </View>
-              </ScrollView>
+              )}
+              {fotosCampo.length === 0 && (
+                <Text style={s.noPhotos}>Sin fotos capturadas</Text>
+              )}
             </View>
 
             <TouchableOpacity style={s.primaryBtn} onPress={() => setPaso(5)}>
@@ -909,51 +929,99 @@ export default function DetalleAsignacion() {
 
       {paso === 5 && (
         <ScrollView contentContainerStyle={s.content}>
-          <View style={s.card}>
-            <Text style={s.title}>Evaluación final</Text>
-            <Text style={s.label}>Calidad del servicio</Text>
-            <Stars val={datos.calidad_servicio ?? 0} onChange={(v) => setDato('calidad_servicio', v)} />
-            <Text style={s.label}>Coordinación</Text>
-            <Stars val={datos.calificacion_coordinacion ?? 0} onChange={(v) => setDato('calificacion_coordinacion', v)} />
+          <View style={s.beneficiaryCard}>
+            <View style={s.beneficiaryHeader}>
+              <View style={s.beneficiaryIcon}>
+                <Text style={s.beneficiaryIconText}>⭐</Text>
+              </View>
+              <View style={s.beneficiaryTitleBox}>
+                <Text style={s.beneficiaryTitle}>Evaluación final</Text>
+                <Text style={s.beneficiarySubtitle}>Paso 5 de 5</Text>
+              </View>
+            </View>
+            
+            <View style={s.beneficiaryData}>
+              <Text style={s.sectionLabel}>Califica tu experiencia</Text>
+              
+              <View style={s.evalBox}>
+                <Text style={s.evalLabel}>Calidad del servicio recibido</Text>
+                <Stars val={datos.calidad_servicio ?? 0} onChange={(v) => setDato('calidad_servicio', v)} />
+              </View>
+              
+              <View style={s.evalBox}>
+                <Text style={s.evalLabel}>Coordinación y atención</Text>
+                <Stars val={datos.calificacion_coordinacion ?? 0} onChange={(v) => setDato('calificacion_coordinacion', v)} />
+              </View>
+            </View>
           </View>
 
-          <View style={s.card}>
-            <Text style={s.title}>Validación de identidad</Text>
-            {!fotoRostro ? (
-              <>
-                <Text style={s.warnCard}>Antes de firmar, captura la foto de rostro del beneficiario.</Text>
-                <TouchableOpacity style={s.primaryBtn} onPress={capturarFotoRostro}>
-                  <Text style={s.primaryBtnText}>Tomar foto de rostro</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <View style={s.okBadge}>
-                  <Text style={s.okBadgeText}>Identidad capturada</Text>
+          <View style={s.beneficiaryCard}>
+            <View style={s.beneficiaryHeader}>
+              <View style={s.beneficiaryIcon}>
+                <Text style={s.beneficiaryIconText}>📸</Text>
+              </View>
+              <View style={s.beneficiaryTitleBox}>
+                <Text style={s.beneficiaryTitle}>Validación de identidad</Text>
+                <Text style={s.beneficiarySubtitle}>Foto del beneficiario</Text>
+              </View>
+            </View>
+            
+            <View style={s.beneficiaryData}>
+              {!fotoRostro ? (
+                <View style={s.noPhotoBox}>
+                  <Text style={s.noPhotoIcon}>👤</Text>
+                  <Text style={s.noPhotoText}>Necesitas foto del rostro del beneficiario para continuar</Text>
+                  <TouchableOpacity style={s.photoCaptureBtn} onPress={capturarFotoRostro}>
+                    <Text style={s.photoCaptureBtnText}>📷 Tomar foto</Text>
+                  </TouchableOpacity>
                 </View>
-                <Image source={{ uri: fotoRostro }} style={s.facePhoto} />
-                <TouchableOpacity style={s.secondaryBtn} onPress={capturarFotoRostro}>
-                  <Text style={s.secondaryBtnText}>Repetir foto</Text>
-                </TouchableOpacity>
-              </>
-            )}
+              ) : (
+                <View style={s.photoBox}>
+                  <Image source={{ uri: fotoRostro }} style={s.facePhotoLarge} />
+                  <View style={s.photoOkBadge}>
+                    <Text style={s.photoOkBadgeText}>✓ Foto capturada</Text>
+                  </View>
+                  <TouchableOpacity style={s.retakeBtn} onPress={capturarFotoRostro}>
+                    <Text style={s.retakeBtnText}>🔄 Repetir foto</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
 
-          <View style={s.card}>
-            <Text style={s.title}>Firma</Text>
-            {/* @ts-ignore */}
-            <Firma
-              enabled={!!fotoRostro}
-              onChange={({ ok, strokes }) => {
-                setFirmaOk(ok);
-                setFirmaStrokes(strokes);
-              }}
-            />
-            {!firmaOk && <Text style={s.warn}>La firma es obligatoria para finalizar.</Text>}
+          <View style={s.beneficiaryCard}>
+            <View style={s.beneficiaryHeader}>
+              <View style={s.beneficiaryIcon}>
+                <Text style={s.beneficiaryIconText}>✍️</Text>
+              </View>
+              <View style={s.beneficiaryTitleBox}>
+                <Text style={s.beneficiaryTitle}>Firma del beneficiario</Text>
+                <Text style={s.beneficiarySubtitle}>Firma aquí</Text>
+              </View>
+            </View>
+            
+            <View style={s.beneficiaryData}>
+              <View style={s.firmaContainer}>
+                {/* @ts-ignore */}
+                <Firma
+                  enabled={!!fotoRostro}
+                  onChange={({ ok, strokes }) => {
+                    setFirmaOk(ok);
+                    setFirmaStrokes(strokes);
+                  }}
+                />
+              </View>
+              {!firmaOk && <Text style={s.warn}>La firma es obligatoria para finalizar.</Text>}
+              {firmaOk && (
+                <View style={s.firmaOkBadge}>
+                  <Text style={s.firmaOkBadgeText}>✓ Firma capturada</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           <TouchableOpacity style={[s.primaryBtn, guardando && s.disabled]} onPress={finalizar} disabled={guardando}>
-            {guardando ? <ActivityIndicator color={Colors.white} /> : <Text style={s.primaryBtnText}>Guardar y finalizar</Text>}
+            {guardando ? <ActivityIndicator color={Colors.white} /> : <Text style={s.primaryBtnText}>✅ Guardar y finalizar</Text>}
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -1139,4 +1207,103 @@ const s = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   coordStatusText: { color: Colors.white, fontSize: fontSize.xs, fontWeight: '700' },
+  
+  sectionLabel: { fontSize: fontSize.sm, fontWeight: '700', color: Colors.textPrimary, marginBottom: rh(12) },
+  toggleRow: { flexDirection: 'row', gap: rw(12), marginBottom: rh(16) },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: rh(12),
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  toggleBtnOn: { backgroundColor: Colors.guinda, borderColor: Colors.guinda },
+  toggleText: { fontSize: fontSize.base, fontWeight: '600', color: Colors.textPrimary },
+  toggleTextOn: { color: Colors.white },
+  
+  incidenteBox: {
+    backgroundColor: Colors.warning + '08',
+    borderRadius: radius.md,
+    padding: rw(14),
+    borderWidth: 1,
+    borderColor: Colors.warning + '30',
+    marginTop: rh(12),
+  },
+  fieldLabel: { fontSize: fontSize.sm, fontWeight: '600', color: Colors.textPrimary, marginBottom: rh(6) },
+  fieldInput: {
+    borderWidth: 1.2,
+    borderColor: Colors.border,
+    borderRadius: radius.md,
+    backgroundColor: Colors.white,
+    paddingHorizontal: rw(12),
+    paddingVertical: rh(10),
+    marginBottom: rh(12),
+    color: Colors.textPrimary,
+  },
+  observacionesInput: {
+    borderWidth: 1.2,
+    borderColor: Colors.border,
+    borderRadius: radius.md,
+    backgroundColor: Colors.white,
+    paddingHorizontal: rw(12),
+    paddingVertical: rh(10),
+    minHeight: rh(100),
+    textAlignVertical: 'top',
+    color: Colors.textPrimary,
+  },
+  
+  photosHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: rh(12) },
+  photosTitle: { fontSize: fontSize.base, fontWeight: '700', color: Colors.textPrimary },
+  photosSubtitle: { fontSize: fontSize.sm, color: Colors.textSecondary, marginLeft: rw(4) },
+  photosButtons: { flexDirection: 'row', gap: rw(12), marginBottom: rh(12) },
+  photoBtn: {
+    flex: 1,
+    paddingVertical: rh(12),
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: Colors.guinda,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rw(8),
+  },
+  photoBtnIcon: { fontSize: 18 },
+  photoBtnText: { color: Colors.guinda, fontWeight: '700' },
+  photosGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rw(8) },
+  photoThumb: { width: rw(70), height: rw(70), borderRadius: radius.md },
+  noPhotos: { textAlign: 'center', color: Colors.gray400, marginTop: rh(12) },
+  
+  divider: { height: 1, backgroundColor: Colors.gray200, marginVertical: rh(16) },
+  fieldError: { color: Colors.danger, fontSize: fontSize.xs },
+  
+  evalBox: { marginBottom: rh(16) },
+  evalLabel: { fontSize: fontSize.sm, fontWeight: '600', color: Colors.textSecondary, marginBottom: rh(8) },
+  
+  noPhotoBox: { alignItems: 'center', paddingVertical: rh(20) },
+  noPhotoIcon: { fontSize: 48, marginBottom: rh(12) },
+  noPhotoText: { color: Colors.textSecondary, marginBottom: rh(16), textAlign: 'center' },
+  photoCaptureBtn: {
+    backgroundColor: Colors.guinda,
+    borderRadius: radius.md,
+    paddingHorizontal: rw(20),
+    paddingVertical: rh(12),
+  },
+  photoCaptureBtnText: { color: Colors.white, fontWeight: '700' },
+  photoBox: { alignItems: 'center' },
+  facePhotoLarge: { width: rw(200), height: rw(250), borderRadius: radius.lg, borderWidth: 3, borderColor: Colors.success },
+  photoOkBadge: {
+    marginTop: rh(12),
+    backgroundColor: Colors.success + '15',
+    borderRadius: radius.full,
+    paddingHorizontal: rw(14),
+    paddingVertical: rh(6),
+  },
+  photoOkBadgeText: { color: Colors.success, fontWeight: '700' },
+  retakeBtn: { marginTop: rh(12) },
+  retakeBtnText: { color: Colors.guinda, fontWeight: '600' },
+  
+  firmaContainer: { marginTop: rh(8) },
+  firmaOkBadge: { alignSelf: 'center', marginTop: rh(12) },
+  firmaOkBadgeText: { color: Colors.success, fontWeight: '700' },
 });

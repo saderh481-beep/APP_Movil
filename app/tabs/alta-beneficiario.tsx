@@ -172,57 +172,102 @@ export default function AltaBeneficiario() {
     <SafeAreaView style={s.cont} edges={['top']}>
       <View style={s.header}>
         <Text style={s.hT}>Alta de Beneficiario</Text>
-        <Text style={s.hS}>Registrar nuevo beneficiario en el sistema</Text>
+        <Text style={s.hS}>Paso 1 de 2</Text>
+      </View>
+      <View style={s.progressBg}>
+        <View style={[s.progressFill, { width: '50%' }]} />
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <View style={s.sec}><Text style={s.secT}>👤 Datos Personales</Text>
-            <Text style={s.lbl}>Nombre Completo *</Text>
-            <TextInput style={s.inp} value={form.nombre_completo} onChangeText={v => set('nombre_completo', v)} placeholder="Nombre completo o razón social" placeholderTextColor={Colors.gray400} />
-            <Text style={s.lbl}>CURP *</Text>
-            <TextInput style={s.inp} value={form.curp} onChangeText={v => set('curp', v.toUpperCase().slice(0, 18))} placeholder="XXXX000000XXXXXXXX" placeholderTextColor={Colors.gray400} autoCapitalize="characters" maxLength={18} />
-            <Text style={s.hint}>{form.curp.length}/18</Text>
-            <Text style={s.lbl}>Teléfono</Text>
-            <TextInput style={s.inp} value={form.telefono_contacto ?? ''} onChangeText={v => set('telefono_contacto', v)} placeholder="771-000-0000" placeholderTextColor={Colors.gray400} keyboardType="phone-pad" />
-          </View>
-
-          <View style={s.sec}><Text style={s.secT}>📍 Ubicación</Text>
-            <Text style={s.lbl}>Municipio *</Text>
-            <TouchableOpacity style={s.sel} onPress={() => { setShowMunis(!showMunis); }}>
-              <Text style={[s.selT, !form.municipio && s.ph]}>{form.municipio || 'Seleccionar municipio...'}</Text>
-              <Text style={s.arr}>{showMunis ? '▲' : '▼'}</Text>
-            </TouchableOpacity>
-            {showMunis && (
-              <View style={s.drop}>
-                <TextInput style={s.dropS} value={searchMuni} onChangeText={setSearchMuni} placeholder="Buscar municipio..." placeholderTextColor={Colors.gray400} />
-                <ScrollView style={{ maxHeight: 190 }} nestedScrollEnabled>
-                  {MUNICIPIOS_HIDALGO
-                    .filter(m => m.toLowerCase().includes(searchMuni.toLowerCase()))
-                    .map(m => (
-                      <TouchableOpacity key={m} style={[s.dropI, form.municipio === m && s.dropIA]} onPress={() => { set('municipio', m); setShowMunis(false); setSearchMuni(''); }}>
-                        <Text style={[s.dropIT, form.municipio === m && s.dropITA]}>{m}</Text>
-                      </TouchableOpacity>
-                    ))
-                  }
-                </ScrollView>
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardIcon}><Text style={s.cardIconText}>👤</Text></View>
+              <View style={s.cardTitleBox}>
+                <Text style={s.cardTitle}>Datos Personales</Text>
+                <Text style={s.cardSubtitle}>Información del beneficiario</Text>
               </View>
-            )}
-            <Text style={s.lbl}>Localidad / Ejido *</Text>
-            <TextInput style={s.inp} value={form.localidad} onChangeText={v => set('localidad', v)} placeholder="Escribe la localidad o ejido" placeholderTextColor={Colors.gray400} />
+            </View>
+            
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>Nombre Completo *</Text>
+              <TextInput style={s.fieldInput} value={form.nombre_completo} onChangeText={v => set('nombre_completo', v)} placeholder="Nombre completo o razón social" placeholderTextColor={Colors.gray400} />
+            </View>
+            
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>CURP *</Text>
+              <TextInput style={s.fieldInput} value={form.curp} onChangeText={v => set('curp', v.toUpperCase().slice(0, 18))} placeholder="XXXX000000XXXXXXXX" placeholderTextColor={Colors.gray400} autoCapitalize="characters" maxLength={18} />
+              <Text style={s.fieldHint}>{form.curp.length}/18 caracteres</Text>
+            </View>
+            
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>Teléfono</Text>
+              <TextInput style={s.fieldInput} value={form.telefono_contacto ?? ''} onChangeText={v => set('telefono_contacto', v)} placeholder="771-000-0000" placeholderTextColor={Colors.gray400} keyboardType="phone-pad" />
+            </View>
           </View>
 
-          <View style={s.sec}><Text style={s.secT}>🌾 Datos Agrícolas</Text>
-            <Text style={s.lbl}>Folio SADERH *</Text>
-            <TextInput style={s.inp} value={form.folio_saderh} onChangeText={v => set('folio_saderh', v.toUpperCase())} placeholder="HGO-2024-000000" placeholderTextColor={Colors.gray400} autoCapitalize="characters" />
-            <Text style={s.lbl}>Cadena Productiva *</Text>
-            <TextInput style={s.inp} value={form.cadena_productiva} onChangeText={v => set('cadena_productiva', v)} placeholder="Ej: Maíz, Frjol, Chilcue, etc." placeholderTextColor={Colors.gray400} />
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardIcon}><Text style={s.cardIconText}>📍</Text></View>
+              <View style={s.cardTitleBox}>
+                <Text style={s.cardTitle}>Ubicación</Text>
+                <Text style={s.cardSubtitle}>Dirección del beneficiario</Text>
+              </View>
+            </View>
+            
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>Municipio *</Text>
+              <TouchableOpacity style={s.selectBtn} onPress={() => { setShowMunis(!showMunis); }}>
+                <Text style={[s.selectBtnText, !form.municipio && s.placeholder]}>{form.municipio || 'Seleccionar municipio...'}</Text>
+                <Text style={s.selectArrow}>{showMunis ? '▲' : '▼'}</Text>
+              </TouchableOpacity>
+              {showMunis && (
+                <View style={s.dropdown}>
+                  <TextInput style={s.searchInput} value={searchMuni} onChangeText={setSearchMuni} placeholder="Buscar municipio..." placeholderTextColor={Colors.gray400} />
+                  <ScrollView style={{ maxHeight: rh(160) }} nestedScrollEnabled>
+                    {MUNICIPIOS_HIDALGO
+                      .filter(m => m.toLowerCase().includes(searchMuni.toLowerCase()))
+                      .map(m => (
+                        <TouchableOpacity key={m} style={[s.dropdownItem, form.municipio === m && s.dropdownItemActive]} onPress={() => { set('municipio', m); setShowMunis(false); setSearchMuni(''); }}>
+                          <Text style={[s.dropdownItemText, form.municipio === m && s.dropdownItemTextActive]}>{m}</Text>
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>Localidad / Ejido *</Text>
+              <TextInput style={s.fieldInput} value={form.localidad} onChangeText={v => set('localidad', v)} placeholder="Escribe la localidad o ejido" placeholderTextColor={Colors.gray400} />
+            </View>
           </View>
 
-          <TouchableOpacity style={[s.btn, loading && s.btnD]} onPress={guardar} disabled={loading}>
-            <Text style={s.btnT}>{loading ? 'Guardando...' : '💾  Registrar Beneficiario'}</Text>
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardIcon}><Text style={s.cardIconText}>🌾</Text></View>
+              <View style={s.cardTitleBox}>
+                <Text style={s.cardTitle}>Datos Agrícolas</Text>
+                <Text style={s.cardSubtitle}>Información de la parcela</Text>
+              </View>
+            </View>
+            
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>Folio SADERH *</Text>
+              <TextInput style={s.fieldInput} value={form.folio_saderh} onChangeText={v => set('folio_saderh', v.toUpperCase())} placeholder="HGO-2024-000000" placeholderTextColor={Colors.gray400} autoCapitalize="characters" />
+            </View>
+            
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>Cadena Productiva *</Text>
+              <TextInput style={s.fieldInput} value={form.cadena_productiva} onChangeText={v => set('cadena_productiva', v)} placeholder="Ej: Maíz, Frijol, Chile, etc." placeholderTextColor={Colors.gray400} />
+            </View>
+          </View>
+
+          <TouchableOpacity style={[s.primaryBtn, loading && s.btnDisabled]} onPress={guardar} disabled={loading}>
+            <Text style={s.primaryBtnText}>{loading ? '⏳ Guardando...' : '✅ Registrar Beneficiario'}</Text>
           </TouchableOpacity>
-          <View style={{ height: 40 }} />
+          <View style={{ height: rh(40) }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -231,50 +276,100 @@ export default function AltaBeneficiario() {
 
 const s = StyleSheet.create({
   cont: { flex: 1, backgroundColor: Colors.background },
-  header: { backgroundColor: Colors.guinda, paddingHorizontal: 20, paddingVertical: 16 },
-  hT: { fontSize: 22, fontWeight: '800', color: Colors.white },
-  hS: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
-  content: { padding: 16 },
-  sec: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  secT: { fontSize: 14, fontWeight: '700', color: Colors.guinda, marginBottom: 16 },
-  lbl: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, marginBottom: 6, marginTop: 2 },
-  inp: {
-    borderWidth: 1.5,
+  header: { backgroundColor: Colors.guinda, paddingHorizontal: rw(20), paddingVertical: rh(16) },
+  hT: { fontSize: fontSize.xl, fontWeight: '800', color: Colors.white },
+  hS: { fontSize: fontSize.sm, color: Colors.white + 'AA', marginTop: rh(2) },
+  progressBg: { height: rh(3), backgroundColor: Colors.guindaDark },
+  progressFill: { height: rh(3), backgroundColor: Colors.dorado },
+  content: { padding: rw(16), gap: rh(12) },
+  
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: radius.lg,
+    padding: rw(16),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: rh(16) },
+  cardIcon: { width: rw(44), height: rw(44), borderRadius: rw(22), backgroundColor: Colors.guindaAlpha, alignItems: 'center', justifyContent: 'center' },
+  cardIconText: { fontSize: 22 },
+  cardTitleBox: { marginLeft: rw(12), flex: 1 },
+  cardTitle: { fontSize: fontSize.base, fontWeight: '700', color: Colors.textPrimary },
+  cardSubtitle: { fontSize: fontSize.sm, color: Colors.textSecondary, marginTop: rh(2) },
+  
+  fieldGroup: { marginBottom: rh(14) },
+  fieldLabel: { fontSize: fontSize.sm, fontWeight: '600', color: Colors.textPrimary, marginBottom: rh(6) },
+  fieldInput: {
+    borderWidth: 1.2,
     borderColor: Colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
+    borderRadius: radius.md,
+    paddingHorizontal: rw(12),
+    paddingVertical: rh(10),
     minHeight: rh(46),
-    fontSize: 14,
+    fontSize: fontSize.base,
     color: Colors.textPrimary,
     backgroundColor: Colors.gray50,
-    marginBottom: 12,
     width: '100%',
   },
-  hint: { fontSize: 11, color: Colors.textLight, marginTop: -8, marginBottom: 12, textAlign: 'right' },
-  ph: { color: Colors.gray400 },
-  sel: { borderWidth: 1.5, borderColor: Colors.border, borderRadius: 10, padding: 13, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.gray50, marginBottom: 12 },
-  selT: { fontSize: 14, color: Colors.textPrimary, flex: 1 },
-  arr: { fontSize: 11, color: Colors.textSecondary },
-  drop: { borderWidth: 1, borderColor: Colors.border, borderRadius: 10, backgroundColor: Colors.white, overflow: 'hidden', marginBottom: 12 },
-  dropS: {
+  fieldHint: { fontSize: fontSize.xs, color: Colors.textSecondary, marginTop: rh(4), textAlign: 'right' },
+  
+  selectBtn: {
+    borderWidth: 1.2,
+    borderColor: Colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: rw(12),
+    paddingVertical: rh(10),
+    minHeight: rh(46),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.gray50,
+  },
+  selectBtnText: { fontSize: fontSize.base, color: Colors.textPrimary, flex: 1 },
+  placeholder: { color: Colors.gray400 },
+  selectArrow: { fontSize: fontSize.xs, color: Colors.textSecondary },
+  
+  dropdown: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: radius.md,
+    backgroundColor: Colors.white,
+    overflow: 'hidden',
+    marginTop: rh(8),
+  },
+  searchInput: {
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: rw(10),
+    paddingVertical: rh(10),
     minHeight: rh(42),
-    fontSize: 13,
+    fontSize: fontSize.base,
     color: Colors.textPrimary,
     width: '100%',
   },
-  dropI: { padding: 13, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  dropIA: { backgroundColor: Colors.guindaAlpha },
-  dropIT: { fontSize: 14, color: Colors.textPrimary },
-  dropITA: { color: Colors.guinda, fontWeight: '700' },
-  btn: { backgroundColor: Colors.guinda, borderRadius: 14, padding: 18, alignItems: 'center', marginTop: 4, shadowColor: Colors.guinda, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  btnD: { opacity: 0.55 },
-  btnT: { color: Colors.white, fontSize: 16, fontWeight: '700' },
-  noAcc: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 40 },
-  noAccT: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
-  noAccD: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  dropdownItem: { padding: rh(12), borderBottomWidth: 1, borderBottomColor: Colors.border },
+  dropdownItemActive: { backgroundColor: Colors.guindaAlpha },
+  dropdownItemText: { fontSize: fontSize.base, color: Colors.textPrimary },
+  dropdownItemTextActive: { color: Colors.guinda, fontWeight: '700' },
+  
+  primaryBtn: {
+    backgroundColor: Colors.guinda,
+    borderRadius: radius.md,
+    paddingVertical: rh(14),
+    alignItems: 'center',
+    shadowColor: Colors.guinda,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  btnDisabled: { opacity: 0.55 },
+  primaryBtnText: { color: Colors.white, fontSize: fontSize.base, fontWeight: '700' },
+  
+  noAcc: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rh(14), padding: rw(40) },
+  noAccT: { fontSize: fontSize.lg, fontWeight: '700', color: Colors.textPrimary },
+  noAccD: { fontSize: fontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
 });
