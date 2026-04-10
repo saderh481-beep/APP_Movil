@@ -25,6 +25,9 @@ const loadEnvFile = (filename) => {
 loadEnvFile('.env');
 loadEnvFile('.env.production');
 loadEnvFile('.env.railway');
+loadEnvFile('backend/.env');
+loadEnvFile('backend/.env.production');
+loadEnvFile('backend/.env.railway');
 
 const PORT = Number(process.env.PORT || 3002);
 const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY || '';
