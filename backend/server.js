@@ -22,11 +22,6 @@ const loadEnvFile = (filename) => {
   }
 };
 
-// Debug: print ALL environment variables at startup
-const allEnv = Object.keys(process.env).sort().join(',');
-console.log('[ENV_DEBUG] Total env vars:', Object.keys(process.env).length);
-console.log('[ENV_DEBUG] Keys sample:', allEnv.slice(0, 500));
-
 loadEnvFile('.env');
 loadEnvFile('.env.production');
 loadEnvFile('.env.railway');
@@ -34,41 +29,12 @@ loadEnvFile('backend/.env');
 loadEnvFile('backend/.env.production');
 loadEnvFile('backend/.env.railway');
 
-// Explicit check for Railway variables
-const railwayDbUrl = process.env.RAILWAY_DATABASE_URL || process.env.RAILWAY_VAR_DATABASE_URL || '';
-const railwayJwt = process.env.RAILWAY_JWT_SECRET || process.env.RAILWAY_VAR_JWT_SECRET || '';
-console.log('[ENV_DEBUG] Railway DB URL:', railwayDbUrl ? 'present' : 'missing');
-console.log('[ENV_DEBUG] Railway JWT:', railwayJwt ? 'present' : 'missing');
+const PORT = Number(process.env.PORT || 3002);
+const JWT_SECRET = process.env.JWT_SECRET || '';
+const rawDbUrl = process.env.DATABASE_URL || '';
+const DATABASE_URL = (rawDbUrl || '').replace('postgresql://', 'postgres://');
 
-const PORT = Number(process.env.PORT || process.env.RAILWAY_PORT || 3002);
-const JWT_SECRET = process.env.JWT_SECRET || process.env.RAILWAY_JWT_SECRET || process.env.RAILWAY_VAR_JWT_SECRET || process.env.JWT_SECRET_KEY || '';
-const rawDbUrl = process.env.DATABASE_URL || process.env.RAILWAY_DATABASE_URL || process.env.RAILWAY_VAR_DATABASE_URL || process.env.DATABASE_URL_RESTRICTED || process.env.PG_URL || process.env.POSTGRES_URL || '';
-
-console.log('[START] All process env keys:', Object.keys(process.env));
-console.log('[START] Railway vars:', Object.keys(process.env).filter(k => k.startsWith('RAILWAY')).join(', '));
-let DATABASE_URL = rawDbUrl
-  .replace('postgresql://', 'postgres://')
-  .replace('caboose.proxy.rlwy.net', 'postgres.railway.internal')
-  .replace('maglev.proxy.rlwy.net', 'redis.railway.internal');
-
-console.log('[START] Raw DATABASE_URL:', Boolean(rawDbUrl));
-console.log('[START] DATABASE_URL present:', Boolean(DATABASE_URL));
-console.log('[START] JWT_SECRET present:', Boolean(JWT_SECRET));
-console.log('[START] DB URL starts with:', DATABASE_URL ? DATABASE_URL.split('://')[0] : 'none');
-console.log('[START] Full DB URL:', DATABASE_URL ? DATABASE_URL.replace(/:[^@]+@/, ':****@') : 'empty');
-console.log('[START] process.env has DATABASE_URL:', 'DATABASE_URL' in process.env);
-
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
-const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '';
-const CLOUDINARY_PRESET_IMAGENES = process.env.CLOUDINARY_PRESET_IMAGENES || '';
-const CLOUDINARY_PRESET_DOCS = process.env.CLOUDINARY_PRESET_DOCS || '';
-
-if (!DATABASE_URL || !JWT_SECRET) {
-  console.log('[START] ADVERTENCIA: Variables faltantes, usando modo sin DB');
-  console.log('[START] DATABASE_URL:', Boolean(DATABASE_URL));
-  console.log('[START] JWT_SECRET:', Boolean(JWT_SECRET));
-}
+console.log('[START] DB:', Boolean(DATABASE_URL), '| JWT:', Boolean(JWT_SECRET));
 
 const sql = DATABASE_URL ? postgres(DATABASE_URL, {
   ssl: DATABASE_URL.includes('localhost') ? undefined : 'require',
@@ -1114,4 +1080,15 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[API APP] Escuchando en puerto ${PORT}`);
+});
+
+// Keep process alive
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message);
+  // Don't exit - try to keep running
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  // Don't exit - try to keep running
 });
