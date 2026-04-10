@@ -36,90 +36,6 @@ const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '';
 const CLOUDINARY_PRESET_IMAGENES = process.env.CLOUDINARY_PRESET_IMAGENES || '';
 const CLOUDINARY_PRESET_DOCS = process.env.CLOUDINARY_PRESET_DOCS || '';
 
-const uploadToCloudinary = async (buffer, filename, preset) => {
-  const formData = new (require('form-data'))();
-  formData.append('file', buffer, filename);
-  formData.append('upload_preset', preset);
-
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Cloudinary upload failed: ${error}`);
-  }
-
-  const data = await response.json();
-  return data.secure_url;
-};
-
-const parseMultipart = (req) => {
-  return new Promise((resolve, reject) => {
-    const contentType = req.headers['content-type'] || '';
-    if (!contentType.includes('multipart/form-data')) {
-      resolve({});
-      return;
-    }
-
-    const boundaryMatch = contentType.match(/boundary=(.+)$/);
-    if (!boundaryMatch) {
-      resolve({});
-      return;
-    }
-    const boundary = boundaryMatch[1];
-    let body = Buffer.alloc(0);
-
-    req.on('data', (chunk) => {
-      body = Buffer.concat([body, chunk]);
-      if (body.length > 50 * 1024 * 1024) {
-        reject(new Error('Payload demasiado grande'));
-        req.destroy();
-      }
-    });
-
-    req.on('end', () => {
-      try {
-        const parts = body.toString('binary').split(`--${boundary}`);
-        const fields = {};
-        const files = {};
-
-        for (const part of parts) {
-          if (!part.includes('\r\n\r\n') || part.trim() === '--') continue;
-          
-          const headerEnd = part.indexOf('\r\n\r\n');
-          const headersPart = part.substring(0, headerEnd);
-          const contentPart = part.substring(headerEnd + 4, part.length - 2);
-          
-          const nameMatch = headersPart.match(/name="([^"]+)"/);
-          if (!nameMatch) continue;
-          const fieldName = nameMatch[1];
-          
-          const filenameMatch = headersPart.match(/filename="([^"]+)"/);
-          if (filenameMatch) {
-            const filename = filenameMatch[1];
-            const ext = path.extname(filename) || '.bin';
-            const buffer = Buffer.from(contentPart, 'binary');
-            files[fieldName] = {
-              filename,
-              buffer,
-              ext,
-            };
-          } else {
-            fields[fieldName] = contentPart;
-          }
-        }
-        resolve({ fields, files });
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    req.on('error', reject);
-  });
-};
-
 if (!DATABASE_URL) {
   throw new Error('DATABASE_URL no configurado');
 }
@@ -532,52 +448,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /bitacoras/:id/foto-rostro - Subir foto de rostro
-    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/foto-rostro$/)) {
-      const auth = await requireAuth(req);
-      if (!auth.ok) {
-        json(res, auth.status, { error: auth.error });
-        return;
-      }
-
-      const bitacoraId = url.pathname.split('/')[2];
-      
-      try {
-        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
-          json(res, 500, { error: 'Cloudinary no configurado' });
-          return;
-        }
-
-        const { files } = await parseMultipart(req);
-        const fotoFile = files?.foto;
-        
-        if (!fotoFile) {
-          json(res, 400, { error: 'No se recibió imagen' });
-          return;
-        }
-
-        const fotoUrl = await uploadToCloudinary(fotoFile.buffer, `rostro-${bitacoraId}${fotoFile.ext}`, CLOUDINARY_PRESET_IMAGENES);
-        
-        const result = await sql`
-          UPDATE bitacoras 
-          SET foto_rostro_url = ${fotoUrl}, updated_at = NOW()
-          WHERE id = ${bitacoraId}
-          RETURNING *
-        `;
-        
-        if (!result.length) {
-          json(res, 404, { error: 'Bitácora no encontrada' });
-          return;
-        }
-        
-        json(res, 200, { success: true, foto_rostro_url: fotoUrl, data: result[0] });
-      } catch (dbError) {
-        console.error('[POST /bitacoras/:id/foto-rostro] Error:', dbError);
-        json(res, 500, { error: 'Error al subir foto de rostro' });
-      }
-      return;
-    }
-
     // POST /bitacoras/:id/firma - Subir firma
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/firma$/)) {
       const auth = await requireAuth(req);
@@ -587,22 +457,15 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
       
       try {
-        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
-          json(res, 500, { error: 'Cloudinary no configurado' });
-          return;
-        }
-
-        const { files } = await parseMultipart(req);
-        const firmaFile = files?.firma;
+        const firmaUrl = body.firma_url;
         
-        if (!firmaFile) {
-          json(res, 400, { error: 'No se recibió archivo de firma' });
+        if (!firmaUrl) {
+          json(res, 400, { error: 'No se recibió URL de firma' });
           return;
         }
-
-        const firmaUrl = await uploadToCloudinary(firmaFile.buffer, `firma-${bitacoraId}${firmaFile.ext}`, CLOUDINARY_PRESET_IMAGENES);
         
         const result = await sql`
           UPDATE bitacoras 
@@ -619,12 +482,51 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, { success: true, firma_url: firmaUrl, data: result[0] });
       } catch (dbError) {
         console.error('[POST /bitacoras/:id/firma] Error:', dbError);
-        json(res, 500, { error: 'Error al subir firma' });
+        json(res, 500, { error: 'Error al guardar firma' });
       }
       return;
     }
 
-    // POST /bitacoras/:id/fotos-campo - Subir fotos de campo
+    // POST /bitacoras/:id/foto-rostro - Guardar URL de foto de rostro
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/foto-rostro$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
+      
+      try {
+        const fotoUrl = body.foto_url;
+        
+        if (!fotoUrl) {
+          json(res, 400, { error: 'No se recibió URL de foto' });
+          return;
+        }
+        
+        const result = await sql`
+          UPDATE bitacoras 
+          SET foto_rostro_url = ${fotoUrl}, updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, foto_rostro_url: fotoUrl, data: result[0] });
+      } catch (dbError) {
+        console.error('[POST /bitacoras/:id/foto-rostro] Error:', dbError);
+        json(res, 500, { error: 'Error al guardar foto de rostro' });
+      }
+      return;
+    }
+
+    // POST /bitacoras/:id/fotos-campo - Guardar URLs de fotos de campo
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/fotos-campo$/)) {
       const auth = await requireAuth(req);
       if (!auth.ok) {
@@ -633,40 +535,17 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
       
       try {
-        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
-          json(res, 500, { error: 'Cloudinary no configurado' });
+        const fotosUrls = body.fotos_urls;
+        
+        if (!fotosUrls || !Array.isArray(fotosUrls) || fotosUrls.length === 0) {
+          json(res, 400, { error: 'No se recibió ninguna URL de fotos' });
           return;
         }
-
-        const { files } = await parseMultipart(req);
         
-        const fotosFiles = [];
-        
-        if (files['fotos[]']) {
-          if (Array.isArray(files['fotos[]'])) {
-            fotosFiles.push(...files['fotos[]']);
-          } else {
-            fotosFiles.push(files['fotos[]']);
-          }
-        }
-        
-        const otherFiles = Object.values(files).filter(f => f.filename && f !== files['fotos[]'] && f !== files.foto && f !== files.firma);
-        fotosFiles.push(...otherFiles);
-        
-        if (fotosFiles.length === 0) {
-          json(res, 400, { error: 'No se recibió ninguna imagen' });
-          return;
-        }
-
-        const urls = [];
-        for (let i = 0; i < fotosFiles.length; i++) {
-          const url = await uploadToCloudinary(fotosFiles[i].buffer, `campo-${bitacoraId}-${i}${fotosFiles[i].ext}`, CLOUDINARY_PRESET_IMAGENES);
-          urls.push(url);
-        }
-        
-        const urlsJson = JSON.stringify(urls);
+        const urlsJson = JSON.stringify(fotosUrls);
         
         const result = await sql`
           UPDATE bitacoras 
@@ -680,10 +559,360 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         
-        json(res, 200, { success: true, fotos_campo: urls, data: result[0] });
+        json(res, 200, { success: true, fotos_campo: fotosUrls, data: result[0] });
       } catch (dbError) {
         console.error('[POST /bitacoras/:id/fotos-campo] Error:', dbError);
-        json(res, 500, { error: 'Error al subir fotos de campo' });
+        json(res, 500, { error: 'Error al guardar fotos de campo' });
+      }
+      return;
+    }
+
+    // GET /cloudinary-config - Configuración pública de Cloudinary
+    if (req.method === 'GET' && url.pathname === '/cloudinary-config') {
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
+        json(res, 500, { error: 'Cloudinary no configurado' });
+        return;
+      }
+
+      json(res, 200, {
+        cloudName: CLOUDINARY_CLOUD_NAME,
+        apiKey: CLOUDINARY_API_KEY,
+        uploadPreset: CLOUDINARY_PRESET_IMAGENES,
+      });
+      return;
+    }
+
+    // POST /bitacoras/:id/foto-rostro/signature - Obtener firma para subir foto de rostro
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/foto-rostro\/signature$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+        json(res, 500, { error: 'Cloudinary no configurado' });
+        return;
+      }
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      const publicId = `rostro-${bitacoraId}`;
+      const signature = crypto
+        .createHash('sha1')
+        .update(`public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
+        .digest('hex');
+
+      json(res, 200, {
+        signature,
+        timestamp,
+        cloudName: CLOUDINARY_CLOUD_NAME,
+        apiKey: CLOUDINARY_API_KEY,
+        folder: 'bitacoras',
+        publicId,
+      });
+      return;
+    }
+
+    // POST /bitacoras/:id/firma/signature - Obtener firma para subir firma
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/firma\/signature$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+        json(res, 500, { error: 'Cloudinary no configurado' });
+        return;
+      }
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      const publicId = `firma-${bitacoraId}`;
+      const signature = crypto
+        .createHash('sha1')
+        .update(`public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
+        .digest('hex');
+
+      json(res, 200, {
+        signature,
+        timestamp,
+        cloudName: CLOUDINARY_CLOUD_NAME,
+        apiKey: CLOUDINARY_API_KEY,
+        folder: 'bitacoras',
+        publicId,
+      });
+      return;
+    }
+
+    // POST /bitacoras/:id/fotos-campo/signature - Obtener firma para subir fotos de campo
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/fotos-campo\/signature$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const index = parseInt(url.searchParams.get('index') || '0');
+
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+        json(res, 500, { error: 'Cloudinary no configurado' });
+        return;
+      }
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      const publicId = `campo-${bitacoraId}-${index}`;
+      const signature = crypto
+        .createHash('sha1')
+        .update(`public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
+        .digest('hex');
+
+      json(res, 200, {
+        signature,
+        timestamp,
+        cloudName: CLOUDINARY_CLOUD_NAME,
+        apiKey: CLOUDINARY_API_KEY,
+        folder: 'bitacoras',
+        publicId,
+      });
+      return;
+    }
+
+    // POST /bitacoras/:id/foto-rostro/url - Guardar URL de foto de rostro
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/foto-rostro\/url$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
+      
+      try {
+        const urlFoto = body.url;
+        
+        if (!urlFoto) {
+          json(res, 400, { error: 'No se recibió URL' });
+          return;
+        }
+        
+        const result = await sql`
+          UPDATE bitacoras 
+          SET foto_rostro_url = ${urlFoto}, updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, url: urlFoto, data: result[0] });
+      } catch (dbError) {
+        console.error('[POST /bitacoras/:id/foto-rostro/url] Error:', dbError);
+        json(res, 500, { error: 'Error al guardar URL' });
+      }
+      return;
+    }
+
+    // POST /bitacoras/:id/firma/url - Guardar URL de firma
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/firma\/url$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
+      
+      try {
+        const urlFirma = body.url;
+        
+        if (!urlFirma) {
+          json(res, 400, { error: 'No se recibió URL' });
+          return;
+        }
+        
+        const result = await sql`
+          UPDATE bitacoras 
+          SET firma_url = ${urlFirma}, updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, url: urlFirma, data: result[0] });
+      } catch (dbError) {
+        console.error('[POST /bitacoras/:id/firma/url] Error:', dbError);
+        json(res, 500, { error: 'Error al guardar URL' });
+      }
+      return;
+    }
+
+    // POST /bitacoras/:id/fotos-campo/url - Guardar una URL de foto de campo
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/fotos-campo\/url$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
+      
+      try {
+        const urlFoto = body.url;
+        
+        if (!urlFoto) {
+          json(res, 400, { error: 'No se recibió URL' });
+          return;
+        }
+        
+        const existing = await sql`
+          SELECT fotos_campo FROM bitacoras WHERE id = ${bitacoraId}
+        `;
+        
+        let fotos = [];
+        if (existing[0]?.fotos_campo) {
+          try {
+            fotos = typeof existing[0].fotos_campo === 'string' 
+              ? JSON.parse(existing[0].fotos_campo) 
+              : existing[0].fotos_campo;
+          } catch {
+            fotos = [];
+          }
+        }
+        
+        fotos.push(urlFoto);
+        
+        const result = await sql`
+          UPDATE bitacoras 
+          SET fotos_campo = ${JSON.stringify(fotos)}, updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, url: urlFoto, fotos: fotos, data: result[0] });
+      } catch (dbError) {
+        console.error('[POST /bitacoras/:id/fotos-campo/url] Error:', dbError);
+        json(res, 500, { error: 'Error al guardar URL' });
+      }
+      return;
+    }
+
+    // POST /bitacoras/:id/fotos-campo/urls - Guardar múltiples URLs de fotos de campo
+    if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/fotos-campo\/urls$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      const body = await readBody(req);
+      
+      try {
+        const urls = body.urls;
+        
+        if (!urls || !Array.isArray(urls) || urls.length === 0) {
+          json(res, 400, { error: 'No se recibió ninguna URL' });
+          return;
+        }
+        
+        const result = await sql`
+          UPDATE bitacoras 
+          SET fotos_campo = ${JSON.stringify(urls)}, updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, urls: urls, data: result[0] });
+      } catch (dbError) {
+        console.error('[POST /bitacoras/:id/fotos-campo/urls] Error:', dbError);
+        json(res, 500, { error: 'Error al guardar URLs' });
+      }
+      return;
+    }
+
+    // DELETE /bitacoras/:id/foto-rostro - Eliminar foto de rostro
+    if (req.method === 'DELETE' && url.pathname.match(/^\/bitacoras\/[\w-]+\/foto-rostro$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      
+      try {
+        const result = await sql`
+          UPDATE bitacoras 
+          SET foto_rostro_url = null, updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, data: result[0] });
+      } catch (dbError) {
+        console.error('[DELETE /bitacoras/:id/foto-rostro] Error:', dbError);
+        json(res, 500, { error: 'Error al eliminar foto' });
+      }
+      return;
+    }
+
+    // DELETE /bitacoras/:id/firma - Eliminar firma
+    if (req.method === 'DELETE' && url.pathname.match(/^\/bitacoras\/[\w-]+\/firma$/)) {
+      const auth = await requireAuth(req);
+      if (!auth.ok) {
+        json(res, auth.status, { error: auth.error });
+        return;
+      }
+
+      const bitacoraId = url.pathname.split('/')[2];
+      
+      try {
+        const result = await sql`
+          UPDATE bitacoras 
+          SET firma_url = null, updated_at = NOW()
+          WHERE id = ${bitacoraId}
+          RETURNING *
+        `;
+        
+        if (!result.length) {
+          json(res, 404, { error: 'Bitácora no encontrada' });
+          return;
+        }
+        
+        json(res, 200, { success: true, data: result[0] });
+      } catch (dbError) {
+        console.error('[DELETE /bitacoras/:id/firma] Error:', dbError);
+        json(res, 500, { error: 'Error al eliminar firma' });
       }
       return;
     }
