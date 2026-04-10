@@ -360,8 +360,8 @@ const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
         <TouchableOpacity
           style={[s.card, item.completado && s.cardDone]}
           onPress={() => {
-            // Usar id_beneficiario directamente ya que es el ID real de la base de datos
-            const navigateId = item.id_beneficiario ?? item.id_asignacion ?? item.id;
+            // Usar id_asignacion ya que es la clave correcta para encontrar la asignación
+            const navigateId = item.id_asignacion ?? item.id;
             console.log('[DASHBOARD NAV] To detalle id:', navigateId, 'full item:', {id: item.id, id_asignacion: item.id_asignacion, id_beneficiario: item.id_beneficiario});
             router.push({ pathname: '/stack/detalle-asignacion', params: { id: String(navigateId) } });
           }}

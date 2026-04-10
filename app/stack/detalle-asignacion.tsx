@@ -315,6 +315,9 @@ export default function DetalleAsignacion() {
         const visibles = allAsigs.filter((a) => tecnicoMatches(a, tecnico?.id));
         console.log('[DETALLE] Visibles after filter:', visibles.length, 'tecnicoId:', tecnico?.id);
         
+        // Debug: mostrar los IDs que estamos buscando
+        console.log('[DETALLE] Looking for rawId:', rawId);
+        
         // Búsqueda más simple: buscar por cualquier campo de ID
         let found = visibles.find((a) => {
           const searchFields = [
@@ -325,7 +328,12 @@ export default function DetalleAsignacion() {
             a.beneficiario?.id_beneficiario
           ].filter(Boolean);
           
-          return searchFields.some(field => String(field) === rawId);
+          const match = searchFields.some(field => String(field) === rawId);
+          if (!match && rawId) {
+            // Mostrar qué campos estamos comparando
+            console.log('[DETALLE] No match for:', a.nombre, 'fields:', searchFields, 'looking for:', rawId);
+          }
+          return match;
         });
         
         console.log('[DETALLE] Found:', found ? {
