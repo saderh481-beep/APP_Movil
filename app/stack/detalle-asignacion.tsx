@@ -748,17 +748,78 @@ export default function DetalleAsignacion() {
 
       {paso === 3 && (
         <ScrollView contentContainerStyle={s.content}>
-          <View style={s.card}>
-            <Text style={s.title}>Verificación de Beneficiario</Text>
-            <Text style={s.value}>{ben.nombre_completo}</Text>
-            <Text style={s.muted}>CURP: {ben.curp}</Text>
-            <Text style={s.muted}>Municipio: {ben.municipio}</Text>
-            <Text style={s.muted}>Folio SADERH: {ben.folio_saderh}</Text>
-            <Text style={s.muted}>Cultivo: {ben.cadena_productiva}</Text>
-            <Text style={s.muted}>
-              GPS: {gps ? `${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}` : 'Obteniendo ubicación...'}
-            </Text>
+          <View style={s.beneficiaryCard}>
+            <View style={s.beneficiaryHeader}>
+              <View style={s.beneficiaryIcon}>
+                <Text style={s.beneficiaryIconText}>👤</Text>
+              </View>
+              <View style={s.beneficiaryTitleBox}>
+                <Text style={s.beneficiaryTitle}>Verificación de Beneficiario</Text>
+                <Text style={s.beneficiarySubtitle}>Paso 3 de 5</Text>
+              </View>
+            </View>
+            
+            <View style={s.beneficiaryData}>
+              <View style={s.dataRow}>
+                <View style={s.dataLabelBox}>
+                  <Text style={s.dataLabel}>NOMBRE DEL BENEFICIARIO</Text>
+                  <Text style={s.dataValueLarge}>{ben.nombre_completo || '—'}</Text>
+                </View>
+              </View>
+              
+              <View style={s.dataDivider} />
+              
+              <View style={s.dataGrid}>
+                <View style={s.dataItem}>
+                  <Text style={s.dataLabel}>CURP</Text>
+                  <Text style={s.dataValue}>{ben.curp || '—'}</Text>
+                </View>
+                <View style={s.dataItem}>
+                  <Text style={s.dataLabel}>MUNICIPIO</Text>
+                  <Text style={s.dataValue}>{ben.municipio || '—'}</Text>
+                </View>
+              </View>
+              
+              <View style={s.dataDivider} />
+              
+              <View style={s.dataGrid}>
+                <View style={s.dataItem}>
+                  <Text style={s.dataLabel}>FOLIO SADERH</Text>
+                  <Text style={s.dataValue}>{ben.folio_saderh || '—'}</Text>
+                </View>
+                <View style={s.dataItem}>
+                  <Text style={s.dataLabel}>ASIGNACIÓN</Text>
+                  <Text style={s.dataValue}>{ben.cadena_productiva || '—'}</Text>
+                </View>
+              </View>
+              
+              <View style={s.dataDivider} />
+              
+              <View style={s.dataRow}>
+                <View style={s.dataLabelBox}>
+                  <Text style={s.dataLabel}>LOCALIDAD</Text>
+                  <Text style={s.dataValue}>{ben.localidad || '—'}</Text>
+                </View>
+              </View>
+              
+              <View style={s.dataDivider} />
+              
+              <View style={s.coordBox}>
+                <Text style={s.coordLabel}>📍 COORDENADAS</Text>
+                <Text style={s.coordValue}>
+                  {gps 
+                    ? `${gps.lat.toFixed(6)}, ${gps.lon.toFixed(6)}` 
+                    : 'Obteniendo ubicación...'}
+                </Text>
+                {gps && (
+                  <View style={s.coordStatus}>
+                    <Text style={s.coordStatusText}>✓ Ubicación capturada</Text>
+                  </View>
+                )}
+              </View>
+            </View>
           </View>
+          
           <TouchableOpacity style={s.primaryBtn} onPress={() => setPaso(4)}>
             <Text style={s.primaryBtnText}>Continuar a formulario</Text>
           </TouchableOpacity>
@@ -1019,4 +1080,63 @@ const s = StyleSheet.create({
   },
   okBadgeText: { fontSize: fontSize.xs, color: Colors.success, fontWeight: '700' },
   emptyTitle: { fontSize: fontSize.lg, fontWeight: '700', color: Colors.textPrimary },
+  
+  beneficiaryCard: {
+    backgroundColor: Colors.white,
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  beneficiaryHeader: {
+    backgroundColor: Colors.guinda,
+    paddingHorizontal: rw(16),
+    paddingVertical: rh(16),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  beneficiaryIcon: {
+    width: rw(48),
+    height: rw(48),
+    borderRadius: rw(24),
+    backgroundColor: Colors.white + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  beneficiaryIconText: { fontSize: 24 },
+  beneficiaryTitleBox: { marginLeft: rw(12), flex: 1 },
+  beneficiaryTitle: { color: Colors.white, fontSize: fontSize.lg, fontWeight: '700' },
+  beneficiarySubtitle: { color: Colors.white + 'AA', fontSize: fontSize.sm },
+  
+  beneficiaryData: { padding: rw(16), gap: rh(8) },
+  dataRow: { flexDirection: 'row', alignItems: 'center' },
+  dataLabelBox: { flex: 1 },
+  dataDivider: { height: 1, backgroundColor: Colors.gray200, marginVertical: rh(8) },
+  dataGrid: { flexDirection: 'row', gap: rw(12) },
+  dataItem: { flex: 1 },
+  dataLabel: { fontSize: fontSize.xs, fontWeight: '600', color: Colors.textSecondary, marginBottom: rh(2) },
+  dataValue: { fontSize: fontSize.base, fontWeight: '600', color: Colors.textPrimary },
+  dataValueLarge: { fontSize: fontSize.lg, fontWeight: '700', color: Colors.textPrimary },
+  
+  coordBox: {
+    backgroundColor: Colors.success + '08',
+    borderRadius: radius.md,
+    padding: rw(12),
+    borderWidth: 1,
+    borderColor: Colors.success + '30',
+  },
+  coordLabel: { fontSize: fontSize.xs, fontWeight: '700', color: Colors.success, marginBottom: rh(4) },
+  coordValue: { fontSize: fontSize.sm, color: Colors.textPrimary, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  coordStatus: {
+    marginTop: rh(8),
+    backgroundColor: Colors.success,
+    borderRadius: radius.full,
+    paddingHorizontal: rw(10),
+    paddingVertical: rh(4),
+    alignSelf: 'flex-start',
+  },
+  coordStatusText: { color: Colors.white, fontSize: fontSize.xs, fontWeight: '700' },
 });
