@@ -34,7 +34,37 @@ const JWT_SECRET = process.env.JWT_SECRET || '';
 const rawDbUrl = process.env.DATABASE_URL || '';
 const DATABASE_URL = (rawDbUrl || '').replace('postgresql://', 'postgres://');
 
-console.log('[START] DB:', Boolean(DATABASE_URL), '| JWT:', Boolean(JWT_SECRET));
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '';
+const CLOUDINARY_PRESET_IMAGENES = process.env.CLOUDINARY_PRESET_IMAGENES || '';
+
+console.log('[START] DB:', Boolean(DATABASE_URL), '| JWT:', Boolean(JWT_SECRET), '| Cloudinary:', Boolean(CLOUDINARY_CLOUD_NAME));
+
+const uploadToCloudinary = async (base64Data, publicId, preset) => {
+  if (!CLOUDINARY_CLOUD_NAME || !preset) {
+    throw new Error('Cloudinary no configurado en el servidor');
+  }
+  
+  const formData = new URLSearchParams();
+  formData.append('file', base64Data);
+  formData.append('upload_preset', preset);
+  formData.append('public_id', publicId);
+  
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formData.toString(),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error al subir a Cloudinary: ${response.status} - ${errorText}`);
+  }
+  
+  const result = await response.json();
+  return result.secure_url;
+};
 
 const sql = DATABASE_URL ? postgres(DATABASE_URL, {
   ssl: DATABASE_URL.includes('localhost') ? undefined : 'require',
@@ -119,6 +149,43 @@ const readBody = (req) =>
       } catch {
         reject(new Error('JSON inválido'));
       }
+    });
+    req.on('error', reject);
+  });
+
+const readMultipartForm = (req) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => {
+      const body = Buffer.concat(chunks);
+      const contentType = req.headers['content-type'] || '';
+      const boundaryMatch = contentType.match(/boundary=(.+)$/);
+      if (!boundaryMatch) {
+        reject(new Error('Content-Type multipart no válido'));
+        return;
+      }
+      const boundary = boundaryMatch[1];
+      const parts = body.toString('binary').split(`--${boundary}`);
+      const files = [];
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (!trimmed || trimmed === '--') continue;
+        const headerEnd = trimmed.indexOf('\r\n\r\n');
+        if (headerEnd === -1) continue;
+        const headerBlock = trimmed.slice(0, headerEnd);
+        const content = trimmed.slice(headerEnd + 4, trimmed.length - 2);
+        const nameMatch = headerBlock.match(/name="([^"]+)"/);
+        const fileNameMatch = headerBlock.match(/filename="([^"]+)"/);
+        if (!nameMatch) continue;
+        const fieldname = nameMatch[1];
+        if (fileNameMatch) {
+          const originalname = fileNameMatch[1];
+          const buffer = Buffer.from(content, 'binary');
+          files.push({ fieldname, originalname, buffer });
+        }
+      }
+      resolve({ files });
     });
     req.on('error', reject);
   });
@@ -486,7 +553,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /bitacoras/:id/firma - Subir firma
+    // POST /bitacoras/:id/firma - Subir firma (multipart)
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/firma$/)) {
       const auth = await requireAuth(req);
       if (!auth.ok) {
@@ -495,15 +562,26 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
-      const body = await readBody(req);
       
       try {
-        const firmaUrl = body.firma_url;
-        
-        if (!firmaUrl) {
-          json(res, 400, { error: 'No se recibió URL de firma' });
+        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
+          json(res, 503, { error: 'Cloudinary no configurado en el servidor' });
           return;
         }
+
+        const { files } = await readMultipartForm(req);
+        const firmaFile = files?.find(f => f.fieldname === 'firma');
+        
+        if (!firmaFile || !firmaFile.buffer) {
+          json(res, 400, { error: 'No se recibió archivo de firma' });
+          return;
+        }
+
+        const base64 = firmaFile.buffer.toString('base64');
+        const ext = firmaFile.originalname?.split('.').pop() || 'png';
+        const publicId = `firma-${bitacoraId}-${Date.now()}`;
+        
+        const firmaUrl = await uploadToCloudinary(base64, publicId, CLOUDINARY_PRESET_IMAGENES);
         
         const result = await sql`
           UPDATE bitacoras 
@@ -525,7 +603,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /bitacoras/:id/foto-rostro - Guardar URL de foto de rostro
+    // POST /bitacoras/:id/foto-rostro - Subir foto de rostro (multipart)
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/foto-rostro$/)) {
       const auth = await requireAuth(req);
       if (!auth.ok) {
@@ -534,15 +612,26 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
-      const body = await readBody(req);
       
       try {
-        const fotoUrl = body.foto_url;
-        
-        if (!fotoUrl) {
-          json(res, 400, { error: 'No se recibió URL de foto' });
+        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
+          json(res, 503, { error: 'Cloudinary no configurado en el servidor' });
           return;
         }
+
+        const { files } = await readMultipartForm(req);
+        const fotoFile = files?.find(f => f.fieldname === 'foto');
+        
+        if (!fotoFile || !fotoFile.buffer) {
+          json(res, 400, { error: 'No se recibió archivo de foto' });
+          return;
+        }
+
+        const base64 = fotoFile.buffer.toString('base64');
+        const ext = fotoFile.originalname?.split('.').pop() || 'jpg';
+        const publicId = `rostro-${bitacoraId}-${Date.now()}`;
+        
+        const fotoUrl = await uploadToCloudinary(base64, publicId, CLOUDINARY_PRESET_IMAGENES);
         
         const result = await sql`
           UPDATE bitacoras 
@@ -564,7 +653,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /bitacoras/:id/fotos-campo - Guardar URLs de fotos de campo
+    // POST /bitacoras/:id/fotos-campo - Subir fotos de campo (multipart)
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/fotos-campo$/)) {
       const auth = await requireAuth(req);
       if (!auth.ok) {
@@ -573,21 +662,33 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
-      const body = await readBody(req);
       
       try {
-        const fotosUrls = body.fotos_urls;
-        
-        if (!fotosUrls || !Array.isArray(fotosUrls) || fotosUrls.length === 0) {
-          json(res, 400, { error: 'No se recibió ninguna URL de fotos' });
+        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
+          json(res, 503, { error: 'Cloudinary no configurado en el servidor' });
           return;
         }
+
+        const { files } = await readMultipartForm(req);
+        const fotoFiles = files?.filter(f => f.fieldname === 'fotos' || f.fieldname === 'fotos[]') || [];
         
-        const urlsJson = JSON.stringify(fotosUrls);
+        if (!fotoFiles.length) {
+          json(res, 400, { error: 'No se recibió ninguna foto' });
+          return;
+        }
+
+        const urlsPromises = fotoFiles.map(async (fotoFile, i) => {
+          const base64 = fotoFile.buffer.toString('base64');
+          const ext = fotoFile.originalname?.split('.').pop() || 'jpg';
+          const publicId = `campo-${bitacoraId}-${i}-${Date.now()}`;
+          return uploadToCloudinary(base64, publicId, CLOUDINARY_PRESET_IMAGENES);
+        });
+        
+        const fotosUrls = await Promise.all(urlsPromises);
         
         const result = await sql`
           UPDATE bitacoras 
-          SET fotos_campo = ${urlsJson}, updated_at = NOW()
+          SET fotos_campo = ${JSON.stringify(fotosUrls)}, updated_at = NOW()
           WHERE id = ${bitacoraId}
           RETURNING *
         `;
