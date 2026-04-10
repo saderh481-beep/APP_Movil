@@ -234,8 +234,12 @@ export default function Informacion() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <View style={s.cardIcon}><Text style={s.cardIconText}>🎓</Text></View>
-            <Text style={s.cardTitle}>Desarrolladores</Text>
+            <Text style={s.cardTitle}>Universidad</Text>
           </View>
+          <View style={s.uniBox}>
+            <Image source={require('@/assets/images/logo-UTMIR.svg.jpeg')} style={s.uniLogo} resizeMode="contain" />
+          </View>
+          <Text style={s.devLabel}>Desarrolladores:</Text>
           <Text style={s.devName}>Jesus Aldair Quintana Samperio</Text>
           <Text style={s.devName}>Erick Angel Tenorio Alcantara</Text>
         </View>
@@ -292,6 +296,9 @@ const s = StyleSheet.create({
   logoutBtnText: { fontSize: fontSize.base, fontWeight: '700', color: Colors.danger, textAlign: 'center' },
   
   devName: { fontSize: fontSize.sm, color: Colors.textPrimary, marginTop: rh(8) },
+  devLabel: { fontSize: fontSize.xs, fontWeight: '600', color: Colors.textSecondary, marginTop: rh(12), marginBottom: rh(4) },
+  uniBox: { alignItems: 'center', marginBottom: rh(12) },
+  uniLogo: { width: rw(100), height: rw(50), borderRadius: radius.md },
   
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: rw(20) },

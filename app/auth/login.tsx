@@ -249,13 +249,6 @@ export default function Login() {
                 textContentType="oneTimeCode"
               />
 
-              <Text style={s.codeDisplay}>
-                {codigo ? 
-                  codigo.split('').join('  ').padEnd(17, '_') : 
-                  '_  _  _  _  _'
-                }
-              </Text>
-
               {errorMessage ? (
                 // @ts-ignore
                 <Animated.View style={s.errorContainer}>
@@ -454,13 +447,6 @@ const s = StyleSheet.create({
     opacity: 0.8,
   },
   hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
-  codeDisplay: { 
-    fontSize: 24, fontWeight: '700', 
-    color: Colors.textPrimary, 
-    letterSpacing: 12, 
-    textAlign: 'center',
-    fontVariant: ['tabular-nums'],
-  },
   
   errorContainer: { 
     flexDirection: 'row', 

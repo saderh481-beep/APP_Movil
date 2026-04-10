@@ -772,7 +772,11 @@ export default function DetalleAsignacion() {
               <View style={s.dataGrid}>
                 <View style={s.dataItem}>
                   <Text style={s.dataLabel}>CURP</Text>
-                  <Text style={s.dataValue}>{ben.curp || '—'}</Text>
+                  <Text style={s.dataValue}>
+                    {ben.curp 
+                      ? `********${ben.curp.slice(-8)}` 
+                      : '—'}
+                  </Text>
                 </View>
                 <View style={s.dataItem}>
                   <Text style={s.dataLabel}>MUNICIPIO</Text>
@@ -782,14 +786,19 @@ export default function DetalleAsignacion() {
               
               <View style={s.dataDivider} />
               
-              <View style={s.dataGrid}>
-                <View style={s.dataItem}>
+              <View style={s.dataRow}>
+                <View style={s.dataLabelBox}>
                   <Text style={s.dataLabel}>FOLIO SADERH</Text>
-                  <Text style={s.dataValue}>{ben.folio_saderh || '—'}</Text>
+                  <Text style={s.dataValueLarge}>{ben.folio_saderh || '—'}</Text>
                 </View>
-                <View style={s.dataItem}>
+              </View>
+              
+              <View style={s.dataDivider} />
+              
+              <View style={s.dataRow}>
+                <View style={s.dataLabelBox}>
                   <Text style={s.dataLabel}>ASIGNACIÓN</Text>
-                  <Text style={s.dataValue}>{ben.cadena_productiva || '—'}</Text>
+                  <Text style={s.dataValueLarge}>{ben.cadena_productiva || '—'}</Text>
                 </View>
               </View>
               
@@ -1187,7 +1196,7 @@ const s = StyleSheet.create({
   dataItem: { flex: 1 },
   dataLabel: { fontSize: fontSize.xs, fontWeight: '600', color: Colors.textSecondary, marginBottom: rh(2) },
   dataValue: { fontSize: fontSize.base, fontWeight: '600', color: Colors.textPrimary },
-  dataValueLarge: { fontSize: fontSize.lg, fontWeight: '700', color: Colors.textPrimary },
+  dataValueLarge: { fontSize: fontSize.base, fontWeight: '700', color: Colors.guinda },
   
   coordBox: {
     backgroundColor: Colors.success + '08',
