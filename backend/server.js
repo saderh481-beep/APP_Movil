@@ -426,9 +426,11 @@ const server = http.createServer(async (req, res) => {
         
         values.push(bitacoraId);
         
+        const setClause = updates.map((u, i) => `${u} = $${i + 1}`).join(', ');
+        
         const result = await sql`
           UPDATE bitacoras 
-          SET ${sql(updates.join(', '))}, updated_at = NOW()
+          SET ${sql(setClause)}, updated_at = NOW()
           WHERE id = $${paramIndex}
           RETURNING *
         `;
