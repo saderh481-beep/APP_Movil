@@ -27,8 +27,18 @@ loadEnvFile('.env.production');
 loadEnvFile('.env.railway');
 
 const PORT = Number(process.env.PORT || 3002);
-const JWT_SECRET = process.env.JWT_SECRET || '';
-const DATABASE_URL = process.env.DATABASE_URL || '';
+const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY || '';
+const rawDbUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_RESTRICTED || '';
+let DATABASE_URL = rawDbUrl
+  .replace('postgresql://', 'postgres://')
+  .replace('caboose.proxy.rlwy.net', 'postgres.railway.internal')
+  .replace('maglev.proxy.rlwy.net', 'redis.railway.internal');
+
+console.log('[START] Raw DATABASE_URL:', Boolean(rawDbUrl));
+console.log('[START] DATABASE_URL present:', Boolean(DATABASE_URL));
+console.log('[START] JWT_SECRET present:', Boolean(JWT_SECRET));
+console.log('[START] DB URL starts with:', DATABASE_URL ? DATABASE_URL.split('://')[0] : 'none');
+console.log('[START] Full DB URL:', DATABASE_URL.replace(/:[^@]+@/, ':****@'));
 
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
