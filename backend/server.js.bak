@@ -237,7 +237,6 @@ const emptyProtected = async (req, res, payload = []) => {
 };
 
 const server = http.createServer(async (req, res) => {
-  try {
     if (!req.url) {
       json(res, 404, { error: 'Ruta no encontrada' });
       return;
