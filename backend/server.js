@@ -607,8 +607,8 @@ const server = http.createServer(async (req, res) => {
 
     // GET /cloudinary-config - Configuración pública de Cloudinary
     if (req.method === 'GET' && url.pathname === '/cloudinary-config') {
-      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
-        json(res, 500, { error: 'Cloudinary no configurado' });
+      if (!CLOUDINARY_CLOUD_NAME) {
+        json(res, 200, { error: 'Cloudinary no configurado', configurado: false });
         return;
       }
 
@@ -630,8 +630,8 @@ const server = http.createServer(async (req, res) => {
 
       const bitacoraId = url.pathname.split('/')[2];
 
-      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-        json(res, 500, { error: 'Cloudinary no configurado' });
+      if (!CLOUDINARY_CLOUD_NAME) {
+        json(res, 200, { error: 'Cloudinary no configurado', configurado: false });
         return;
       }
 
@@ -663,8 +663,8 @@ const server = http.createServer(async (req, res) => {
 
       const bitacoraId = url.pathname.split('/')[2];
 
-      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-        json(res, 500, { error: 'Cloudinary no configurado' });
+      if (!CLOUDINARY_CLOUD_NAME) {
+        json(res, 200, { error: 'Cloudinary no configurado', configurado: false });
         return;
       }
 
@@ -697,8 +697,8 @@ const server = http.createServer(async (req, res) => {
       const bitacoraId = url.pathname.split('/')[2];
       const index = parseInt(url.searchParams.get('index') || '0');
 
-      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-        json(res, 500, { error: 'Cloudinary no configurado' });
+      if (!CLOUDINARY_CLOUD_NAME) {
+        json(res, 200, { error: 'Cloudinary no configurado', configurado: false });
         return;
       }
 
