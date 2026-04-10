@@ -631,7 +631,12 @@ const server = http.createServer(async (req, res) => {
       const bitacoraId = url.pathname.split('/')[2];
 
       if (!CLOUDINARY_CLOUD_NAME) {
-        json(res, 200, { error: 'Cloudinary no configurado', configurado: false });
+        json(res, 503, { error: 'Cloudinary no está configurado en el servidor. Contacta al administrador.' });
+        return;
+      }
+
+      if (!CLOUDINARY_PRESET_IMAGENES) {
+        json(res, 503, { error: 'Cloudinary upload preset no configurado. Contacta al administrador.' });
         return;
       }
 
@@ -647,6 +652,7 @@ const server = http.createServer(async (req, res) => {
         timestamp,
         cloudName: CLOUDINARY_CLOUD_NAME,
         apiKey: CLOUDINARY_API_KEY,
+        uploadPreset: CLOUDINARY_PRESET_IMAGENES,
         folder: 'bitacoras',
         publicId,
       });
@@ -664,7 +670,12 @@ const server = http.createServer(async (req, res) => {
       const bitacoraId = url.pathname.split('/')[2];
 
       if (!CLOUDINARY_CLOUD_NAME) {
-        json(res, 200, { error: 'Cloudinary no configurado', configurado: false });
+        json(res, 503, { error: 'Cloudinary no está configurado en el servidor. Contacta al administrador.' });
+        return;
+      }
+
+      if (!CLOUDINARY_PRESET_IMAGENES) {
+        json(res, 503, { error: 'Cloudinary upload preset no configurado. Contacta al administrador.' });
         return;
       }
 
@@ -698,7 +709,12 @@ const server = http.createServer(async (req, res) => {
       const index = parseInt(url.searchParams.get('index') || '0');
 
       if (!CLOUDINARY_CLOUD_NAME) {
-        json(res, 200, { error: 'Cloudinary no configurado', configurado: false });
+        json(res, 503, { error: 'Cloudinary no está configurado en el servidor. Contacta al administrador.' });
+        return;
+      }
+
+      if (!CLOUDINARY_PRESET_IMAGENES) {
+        json(res, 503, { error: 'Cloudinary upload preset no configurado. Contacta al administrador.' });
         return;
       }
 
