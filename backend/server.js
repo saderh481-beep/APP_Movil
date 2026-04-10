@@ -22,6 +22,11 @@ const loadEnvFile = (filename) => {
   }
 };
 
+// Debug: print ALL environment variables at startup
+const allEnv = Object.keys(process.env).sort().join(',');
+console.log('[ENV_DEBUG] Total env vars:', Object.keys(process.env).length);
+console.log('[ENV_DEBUG] Keys sample:', allEnv.slice(0, 500));
+
 loadEnvFile('.env');
 loadEnvFile('.env.production');
 loadEnvFile('.env.railway');
@@ -29,11 +34,18 @@ loadEnvFile('backend/.env');
 loadEnvFile('backend/.env.production');
 loadEnvFile('backend/.env.railway');
 
-const PORT = Number(process.env.PORT || 3002);
-const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY || '';
-const rawDbUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_RESTRICTED || process.env.PG_URL || process.env.POSTGRES_URL || '';
+// Explicit check for Railway variables
+const railwayDbUrl = process.env.RAILWAY_DATABASE_URL || process.env.RAILWAY_VAR_DATABASE_URL || '';
+const railwayJwt = process.env.RAILWAY_JWT_SECRET || process.env.RAILWAY_VAR_JWT_SECRET || '';
+console.log('[ENV_DEBUG] Railway DB URL:', railwayDbUrl ? 'present' : 'missing');
+console.log('[ENV_DEBUG] Railway JWT:', railwayJwt ? 'present' : 'missing');
 
-console.log('[START] All env keys:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PG') || k.includes('POSTGRES')).join(', '));
+const PORT = Number(process.env.PORT || process.env.RAILWAY_PORT || 3002);
+const JWT_SECRET = process.env.JWT_SECRET || process.env.RAILWAY_JWT_SECRET || process.env.RAILWAY_VAR_JWT_SECRET || process.env.JWT_SECRET_KEY || '';
+const rawDbUrl = process.env.DATABASE_URL || process.env.RAILWAY_DATABASE_URL || process.env.RAILWAY_VAR_DATABASE_URL || process.env.DATABASE_URL_RESTRICTED || process.env.PG_URL || process.env.POSTGRES_URL || '';
+
+console.log('[START] All process env keys:', Object.keys(process.env));
+console.log('[START] Railway vars:', Object.keys(process.env).filter(k => k.startsWith('RAILWAY')).join(', '));
 let DATABASE_URL = rawDbUrl
   .replace('postgresql://', 'postgres://')
   .replace('caboose.proxy.rlwy.net', 'postgres.railway.internal')
@@ -43,7 +55,8 @@ console.log('[START] Raw DATABASE_URL:', Boolean(rawDbUrl));
 console.log('[START] DATABASE_URL present:', Boolean(DATABASE_URL));
 console.log('[START] JWT_SECRET present:', Boolean(JWT_SECRET));
 console.log('[START] DB URL starts with:', DATABASE_URL ? DATABASE_URL.split('://')[0] : 'none');
-console.log('[START] Full DB URL:', DATABASE_URL.replace(/:[^@]+@/, ':****@'));
+console.log('[START] Full DB URL:', DATABASE_URL ? DATABASE_URL.replace(/:[^@]+@/, ':****@') : 'empty');
+console.log('[START] process.env has DATABASE_URL:', 'DATABASE_URL' in process.env);
 
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
