@@ -180,12 +180,15 @@ const emptyProtected = async (req, res, payload = []) => {
 
 const server = http.createServer(async (req, res) => {
   try {
+    console.log('[REQ]', req.method, req.url, req.headers.host);
+    
     if (!req.url) {
       json(res, 404, { error: 'Ruta no encontrada' });
       return;
     }
 
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    console.log('[URL]', url.pathname);
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
