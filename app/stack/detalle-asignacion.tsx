@@ -666,6 +666,7 @@ export default function DetalleAsignacion() {
         setOffline(false);
         await AsyncStorage.removeItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion ?? id)));
         await AsyncStorage.removeItem(BITACORAS_CERRADAS_CACHE_KEY);
+        await AsyncStorage.setItem('@saderh:refresh_bitacoras', Date.now().toString());
 
         Alert.alert('Visita completada', 'Se guardó bitácora, validación de rostro y firma.', [
           { text: 'Finalizar', onPress: () => router.back() },

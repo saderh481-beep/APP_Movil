@@ -60,6 +60,10 @@ const getAsignacionesCacheKey = (tecnicoId?: string) =>
 const getLastSyncTimeKey = (tecnicoId?: string) =>
   `${LAST_SYNC_TIME_KEY}:${tecnicoId ?? 'anon'}`;
 
+const REFRESH_BENEFICIARIOS_KEY = '@saderh:refresh_beneficiarios';
+const REFRESH_ACTIVIDADES_KEY = '@saderh:refresh_actividades';
+const REFRESH_BITACORAS_KEY = '@saderh:refresh_bitacoras';
+
 const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): Asignacion => ({
   id: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
   nombre: beneficiario.nombre_completo ?? beneficiario.nombre,
@@ -139,6 +143,11 @@ export default function Dashboard() {
     const remaining = await offlineQueue.countPendingBitacoras();
     setPendientes(remaining);
     
+    // Si se sincronizaron bitácoras, forzar actualización del semáforo
+    if (r.sincronizadas > 0 && remaining === 0) {
+      await AsyncStorage.setItem(REFRESH_BITACORAS_KEY, Date.now().toString());
+    }
+    
     // Actualizar estado después de sincronizar
     if (remaining === 0) {
       setSyncStatus('synced');
@@ -197,15 +206,23 @@ export default function Dashboard() {
       
       // Obtener bitácoras cerradas para actualizar estado de completado (con caché)
       let bitacorasCerradas: Array<{ id: string; tipo: string; beneficiario_id?: string; actividad_id?: string }> = [];
+      const refreshBitacorasTs = await AsyncStorage.getItem(REFRESH_BITACORAS_KEY);
+      if (refreshBitacorasTs) {
+        await AsyncStorage.removeItem(REFRESH_BITACORAS_KEY);
+        await AsyncStorage.removeItem(BITACORAS_CERRADAS_CACHE_KEY);
+        console.log('[Dashboard] Refresh bitácoras detectado, forzando obtención fresca');
+      }
       try {
         const cachedCerradas = await AsyncStorage.getItem(BITACORAS_CERRADAS_CACHE_KEY);
+        let useCache = false;
         if (cachedCerradas) {
           const { data, timestamp } = JSON.parse(cachedCerradas);
           if (Date.now() - timestamp < BITACORAS_CERRADAS_TTL) {
             bitacorasCerradas = data;
+            useCache = true;
           }
         }
-        if (!bitacorasCerradas.length) {
+        if (!useCache && !bitacorasCerradas.length) {
           bitacorasCerradas = await bitacorasApi.listarCerradas();
           await AsyncStorage.setItem(BITACORAS_CERRADAS_CACHE_KEY, JSON.stringify({
             data: bitacorasCerradas,
@@ -219,17 +236,33 @@ export default function Dashboard() {
       // Obtener último timestamp de sincronización
       const lastSyncTime = await AsyncStorage.getItem(lastSyncTimeKey);
       
+      // Verificar si hay notificaciones de refresh para forzar recarga completa
+      const refreshBeneficiariosTs = await AsyncStorage.getItem(REFRESH_BENEFICIARIOS_KEY);
+      const refreshActividadesTs = await AsyncStorage.getItem(REFRESH_ACTIVIDADES_KEY);
+      const needsFullRefresh = refreshBeneficiariosTs || refreshActividadesTs;
+      
+      // Limpiar flags de refresh después de leerlos
+      if (refreshBeneficiariosTs) await AsyncStorage.removeItem(REFRESH_BENEFICIARIOS_KEY);
+      if (refreshActividadesTs) await AsyncStorage.removeItem(REFRESH_ACTIVIDADES_KEY);
+      
       // CRÍTICO: Obtener delta de cambios desde el servidor
       let fresh: Asignacion[] = [];
       try {
-const deltaResponse = await syncApi.delta();
-const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
-          ? deltaResponse.beneficiarios.map((beneficiario) => mapDeltaBeneficiarioToAsignacion(beneficiario, new Date().toISOString()))
-          : [];
-        const actividadesDelta = Array.isArray(deltaResponse.actividades)
-          ? deltaResponse.actividades.map((actividad) => mapDeltaActividadToAsignacion(actividad))
-          : [];
-        fresh = [...beneficiariosDelta, ...actividadesDelta];
+        // Si hay refresh pendiente, hacer fetch completo en lugar de delta
+        if (needsFullRefresh) {
+          console.log('[Dashboard] Refresh detectado, haciendo fetch completo');
+          const r = await asignacionesApi.listar();
+          fresh = r.asignaciones ?? [];
+        } else {
+          const deltaResponse = await syncApi.delta();
+          const beneficiariosDelta = Array.isArray(deltaResponse.beneficiarios)
+            ? deltaResponse.beneficiarios.map((beneficiario) => mapDeltaBeneficiarioToAsignacion(beneficiario, new Date().toISOString()))
+            : [];
+          const actividadesDelta = Array.isArray(deltaResponse.actividades)
+            ? deltaResponse.actividades.map((actividad) => mapDeltaActividadToAsignacion(actividad))
+            : [];
+          fresh = [...beneficiariosDelta, ...actividadesDelta];
+        }
       } catch (deltaError) {
         // Si delta falla, hacer fetch completo
         console.warn('Delta sync falló, haciendo fetch completo:', deltaError);
