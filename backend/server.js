@@ -1235,13 +1235,13 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`[API APP] Escuchando en puerto ${PORT}`);
 });
 
-// Keep process alive
+// Keep process alive indefinitely
+setInterval(() => {}, 1000);
+
 process.on('uncaughtException', (err) => {
   console.error('[FATAL] Uncaught exception:', err.message);
-  // Don't exit - try to keep running
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('[FATAL] Unhandled rejection:', reason);
-  // Don't exit - try to keep running
 });
