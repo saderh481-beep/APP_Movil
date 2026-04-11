@@ -42,9 +42,11 @@ const CLOUDINARY_PRESET_IMAGENES = process.env.CLOUDINARY_PRESET_IMAGENES || '';
 console.log('[START] DB:', Boolean(DATABASE_URL), '| JWT:', Boolean(JWT_SECRET), '| Cloudinary:', Boolean(CLOUDINARY_CLOUD_NAME));
 
 const uploadToCloudinary = async (base64Data, publicId, preset) => {
-  if (!CLOUDINARY_CLOUD_NAME || !preset) {
+  if (!CLOUDLOUD_NAME || !preset) {
     throw new Error('Cloudinary no configurado en el servidor');
   }
+  
+  console.log('[Cloudinary] Subiendo:', publicId, 'preset:', preset);
   
   const formData = new URLSearchParams();
   formData.append('file', base64Data);
@@ -158,34 +160,39 @@ const readMultipartForm = (req) =>
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {
-      const body = Buffer.concat(chunks);
-      const contentType = req.headers['content-type'] || '';
-      const boundaryMatch = contentType.match(/boundary=(.+)$/);
-      if (!boundaryMatch) {
-        reject(new Error('Content-Type multipart no válido'));
-        return;
-      }
-      const boundary = boundaryMatch[1];
-      const parts = body.toString('binary').split(`--${boundary}`);
-      const files = [];
-      for (const part of parts) {
-        const trimmed = part.trim();
-        if (!trimmed || trimmed === '--') continue;
-        const headerEnd = trimmed.indexOf('\r\n\r\n');
-        if (headerEnd === -1) continue;
-        const headerBlock = trimmed.slice(0, headerEnd);
-        const content = trimmed.slice(headerEnd + 4, trimmed.length - 2);
-        const nameMatch = headerBlock.match(/name="([^"]+)"/);
-        const fileNameMatch = headerBlock.match(/filename="([^"]+)"/);
-        if (!nameMatch) continue;
-        const fieldname = nameMatch[1];
-        if (fileNameMatch) {
-          const originalname = fileNameMatch[1];
-          const buffer = Buffer.from(content, 'binary');
-          files.push({ fieldname, originalname, buffer });
+      try {
+        const body = Buffer.concat(chunks);
+        const contentType = req.headers['content-type'] || '';
+        const boundaryMatch = contentType.match(/boundary=(.+)$/);
+        if (!boundaryMatch) {
+          reject(new Error('Content-Type multipart no válido'));
+          return;
         }
+        let boundary = boundaryMatch[1].replace(/^"|"$/g, '');
+        const parts = body.toString('latin1').split(`--${boundary}`);
+        const files = [];
+        for (const part of parts) {
+          if (!part || part === '--' || part.trim() === '') continue;
+          const CRLF = '\r\n';
+          const headerEndIdx = part.indexOf(CRLF + CRLF);
+          if (headerEndIdx === -1) continue;
+          const headerBlock = part.slice(0, headerEndIdx);
+          const contentBlock = part.slice(headerEndIdx + 4);
+          const cleanContent = contentBlock.replace(new RegExp(CRLF + '--$'), '').replace(CRLF + '--$', '');
+          const nameMatch = headerBlock.match(/name="([^"]+)"/);
+          const fileNameMatch = headerBlock.match(/filename="([^"]+)"/);
+          if (!nameMatch) continue;
+          const fieldname = nameMatch[1];
+          if (fileNameMatch) {
+            const originalname = fileNameMatch[1];
+            const buffer = Buffer.from(cleanContent, 'latin1');
+            files.push({ fieldname, originalname, buffer });
+          }
+        }
+        resolve({ files });
+      } catch (err) {
+        reject(err);
       }
-      resolve({ files });
     });
     req.on('error', reject);
   });
@@ -555,6 +562,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bitacoras/:id/firma - Subir firma (multipart)
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/firma$/)) {
+      console.log('[POST /bitacoras/:id/firma] Iniciando...');
       const auth = await requireAuth(req);
       if (!auth.ok) {
         json(res, auth.status, { error: auth.error });
@@ -562,6 +570,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
+      console.log('[POST /bitacoras/:id/firma] bitacoraId:', bitacoraId);
       
       try {
         if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
@@ -570,6 +579,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const { files } = await readMultipartForm(req);
+        console.log('[POST /bitacoras/:id/firma] Archivos recibidos:', files?.length);
         const firmaFile = files?.find(f => f.fieldname === 'firma');
         
         if (!firmaFile || !firmaFile.buffer) {
@@ -577,11 +587,19 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
+        console.log('[POST /bitacoras/:id/firma] buffer length:', firmaFile.buffer.length);
         const base64 = firmaFile.buffer.toString('base64');
         const ext = firmaFile.originalname?.split('.').pop() || 'png';
+        
+        // Si es SVG, convertir a data URI
+        let fileData = base64;
+        if (ext === 'svg') {
+          fileData = 'data:image/svg+xml;base64,' + base64;
+        }
+        
         const publicId = `firma-${bitacoraId}-${Date.now()}`;
         
-        const firmaUrl = await uploadToCloudinary(base64, publicId, CLOUDINARY_PRESET_IMAGENES);
+        const firmaUrl = await uploadToCloudinary(fileData, publicId, CLOUDINARY_PRESET_IMAGENES);
         
         const result = await sql`
           UPDATE bitacoras 
@@ -605,6 +623,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bitacoras/:id/foto-rostro - Subir foto de rostro (multipart)
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/foto-rostro$/)) {
+      console.log('[POST /bitacoras/:id/foto-rostro] Iniciando...');
       const auth = await requireAuth(req);
       if (!auth.ok) {
         json(res, auth.status, { error: auth.error });
@@ -612,6 +631,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
+      console.log('[POST /bitacoras/:id/foto-rostro] bitacoraId:', bitacoraId);
       
       try {
         if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
@@ -620,6 +640,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const { files } = await readMultipartForm(req);
+        console.log('[POST /bitacoras/:id/foto-rostro] Archivos recibidos:', files?.length);
         const fotoFile = files?.find(f => f.fieldname === 'foto');
         
         if (!fotoFile || !fotoFile.buffer) {
@@ -627,9 +648,14 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const base64 = fotoFile.buffer.toString('base64');
+        console.log('[POST /bitacoras/:id/foto-rostro] buffer length:', fotoFile.buffer.length);
+        let base64 = fotoFile.buffer.toString('base64');
         const ext = fotoFile.originalname?.split('.').pop() || 'jpg';
         const publicId = `rostro-${bitacoraId}-${Date.now()}`;
+        
+        // Añadir prefix data URI si es diferente de jpg/png
+        if (ext === 'png') base64 = 'data:image/png;base64,' + base64;
+        else if (ext === 'svg') base64 = 'data:image/svg+xml;base64,' + base64;
         
         const fotoUrl = await uploadToCloudinary(base64, publicId, CLOUDINARY_PRESET_IMAGENES);
         
@@ -655,6 +681,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bitacoras/:id/fotos-campo - Subir fotos de campo (multipart)
     if (req.method === 'POST' && url.pathname.match(/^\/bitacoras\/[\w-]+\/fotos-campo$/)) {
+      console.log('[POST /bitacoras/:id/fotos-campo] Iniciando...');
       const auth = await requireAuth(req);
       if (!auth.ok) {
         json(res, auth.status, { error: auth.error });
@@ -662,6 +689,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
+      console.log('[POST /bitacoras/:id/fotos-campo] bitacoraId:', bitacoraId);
       
       try {
         if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_PRESET_IMAGENES) {
@@ -670,6 +698,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const { files } = await readMultipartForm(req);
+        console.log('[POST /bitacoras/:id/fotos-campo] Archivos recibidos:', files?.length);
         const fotoFiles = files?.filter(f => f.fieldname === 'fotos' || f.fieldname === 'fotos[]') || [];
         
         if (!fotoFiles.length) {
@@ -678,9 +707,14 @@ const server = http.createServer(async (req, res) => {
         }
 
         const urlsPromises = fotoFiles.map(async (fotoFile, i) => {
-          const base64 = fotoFile.buffer.toString('base64');
+          console.log('[POST /bitacoras/:id/fotos-campo] buffer length:', fotoFile.buffer.length, 'file:', fotoFile.originalname);
+          let base64 = fotoFile.buffer.toString('base64');
           const ext = fotoFile.originalname?.split('.').pop() || 'jpg';
           const publicId = `campo-${bitacoraId}-${i}-${Date.now()}`;
+          
+          if (ext === 'png') base64 = 'data:image/png;base64,' + base64;
+          else if (ext === 'svg') base64 = 'data:image/svg+xml;base64,' + base64;
+          
           return uploadToCloudinary(base64, publicId, CLOUDINARY_PRESET_IMAGENES);
         });
         
