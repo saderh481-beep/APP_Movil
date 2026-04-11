@@ -1183,22 +1183,113 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'POST' && url.pathname === '/sync') {
+    if (req.method === 'POST' && url.pathname === '/sync/sync') {
       const auth = await requireAuth(req);
       if (!auth.ok) {
         json(res, auth.status, { error: auth.error });
         return;
       }
 
+      const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
       const body = await readBody(req);
       const operaciones = Array.isArray(body.operaciones) ? body.operaciones : [];
-      const resultados = operaciones.map((op) => ({
-        sync_id: op?.payload?.sync_id || crypto.randomUUID(),
-        operacion: op?.operacion || 'desconocida',
-        exito: true,
-      }));
+      const resultados = [];
 
-      json(res, 200, { procesadas: resultados.length, resultados });
+      for (const op of operaciones) {
+        const operacion = op?.operacion || '';
+        const timestamp = op?.timestamp || '';
+        const payload = op?.payload || {};
+        const syncId = payload?.sync_id;
+        const tipo = payload?.tipo;
+        const beneficiarioId = payload?.beneficiario_id;
+        const actividadId = payload?.actividad_id;
+        const fechaInicio = payload?.fecha_inicio;
+
+        const errores = [];
+
+        if (!syncId) errores.push('Faltante sync_id');
+
+        if (!tipo) {
+          errores.push('Faltante tipo');
+        } else if (tipo !== 'beneficiario' && tipo !== 'actividad') {
+          errores.push('Tipo inválido: Debe ser "beneficiario" o "actividad"');
+        }
+
+        if (tipo === 'beneficiario' && !beneficiarioId) {
+          errores.push('Faltante beneficiario_id');
+        } else if (beneficiarioId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(beneficiarioId)) {
+          errores.push('beneficiario_id debe ser UUID válido');
+        }
+
+        if (tipo === 'actividad' && !actividadId) {
+          errores.push('Faltante actividad_id');
+        } else if (actividadId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actividadId)) {
+          errores.push('actividad_id debe ser UUID válido');
+        }
+
+        if (!fechaInicio) {
+          errores.push('Faltante fecha_inicio');
+        } else if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/.test(fechaInicio)) {
+          errores.push('fecha_inicio debe ser ISO 8601 (ej: 2026-04-11T10:00:00Z)');
+        }
+
+        if (errores.length > 0) {
+          resultados.push({
+            sync_id: syncId || null,
+            operacion,
+            exito: false,
+            errores,
+          });
+          continue;
+        }
+
+        if (operacion === 'crear_bitacora') {
+          try {
+            const bitacoraId = `bitacora-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            
+            await sql`
+              INSERT INTO bitacoras (
+                id, tipo, estado, tecnico_id, beneficiario_id, actividad_id, fecha_inicio,
+                sync_id, created_at, updated_at
+              ) VALUES (
+                ${bitacoraId}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId}, ${actividadId}, ${fechaInicio},
+                ${syncId}, NOW(), NOW()
+              )
+            `;
+
+            resultados.push({
+              sync_id: syncId,
+              operacion,
+              exito: true,
+              id_bitacora: bitacoraId,
+              mensaje: 'Bitácora creada correctamente',
+            });
+          } catch (dbError) {
+            console.error('[POST /sync/sync] Error DB:', dbError);
+            resultados.push({
+              sync_id: syncId,
+              operacion,
+              exito: false,
+              errores: ['Error al crear bitácora en el servidor'],
+            });
+          }
+        } else {
+          resultados.push({
+            sync_id: syncId,
+            operacion,
+            exito: false,
+            errores: [`Operación no soportada: ${operacion}`],
+          });
+        }
+      }
+
+      const exitosas = resultados.filter(r => r.exito).length;
+      json(res, 200, { 
+        procesadas: resultados.length, 
+        exitosas, 
+        fallidas: resultados.length - exitosas,
+        resultados 
+      });
       return;
     }
 
