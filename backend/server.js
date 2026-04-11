@@ -42,7 +42,7 @@ const CLOUDINARY_PRESET_IMAGENES = process.env.CLOUDINARY_PRESET_IMAGENES || '';
 console.log('[START] DB:', Boolean(DATABASE_URL), '| JWT:', Boolean(JWT_SECRET), '| Cloudinary:', Boolean(CLOUDINARY_CLOUD_NAME));
 
 const uploadToCloudinary = async (base64Data, publicId, preset) => {
-  if (!CLOUDLOUD_NAME || !preset) {
+  if (!CLOUDINARY_CLOUD_NAME || !preset) {
     throw new Error('Cloudinary no configurado en el servidor');
   }
   
