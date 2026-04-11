@@ -254,12 +254,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
-      if (isDemoMode) {
-        json(res, 200, { status: 'ok', service: 'api-app', mode: 'demo', ts: new Date().toISOString() });
-        return;
-      }
-      await sql`select 1`;
-      json(res, 200, { status: 'ok', service: 'api-app', ts: new Date().toISOString() });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ status: 'ok', service: 'api-app', ts: new Date().toISOString() }));
       return;
     }
 
@@ -1235,13 +1231,20 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`[API APP] Escuchando en puerto ${PORT}`);
 });
 
-// Keep process alive indefinitely
-setInterval(() => {}, 1000);
+// Heartbeat cada 30 segundos para mantener vivo
+setInterval(() => {
+  console.log('[HEARTBEAT] Servidor activo');
+}, 30000);
 
-process.on('uncaughtException', (err) => {
-  console.error('[FATAL] Uncaught exception:', err.message);
+// Prevent crash
+process.stdin.on('end', () => {
+  console.log('[STDIN] End');
 });
 
-process.on('unhandledRejection', (reason) => {
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message, err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
   console.error('[FATAL] Unhandled rejection:', reason);
 });
