@@ -40,11 +40,9 @@ const mergeAsignaciones = (cached: Asignacion[], fresh: Asignacion[]): Asignacio
 };
 
 const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
-  if (!tecnicoId) return true;
-  // Si es asignación de tipo beneficiario y no tiene id_tecnico, permitirla
-  if (asignacion.tipo_asignacion === 'beneficiario' && 
-      (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '')) {
-    return true;
+  if (!tecnicoId) return false;
+  if (asignacion.tipo_asignacion === 'beneficiario') {
+    return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
   }
   return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
 };

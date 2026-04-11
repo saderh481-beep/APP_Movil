@@ -39,11 +39,9 @@ const getAsignacionesCacheKey = (tecnicoId?: string) =>
 const getBitacoraDraftKey = (tecnicoId?: string, asignacionId?: string) =>
   `@saderh:draft:bitacora:${tecnicoId ?? 'anon'}:${asignacionId ?? 'sin-asignacion'}`;
 const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
-  if (!tecnicoId) return true;
-  // Si es asignación de tipo beneficiario y no tiene id_tecnico, permitirla
-  if (asignacion.tipo_asignacion === 'beneficiario' && 
-      (asignacion.id_tecnico === null || asignacion.id_tecnico === undefined || asignacion.id_tecnico === '')) {
-    return true;
+  if (!tecnicoId) return false;
+  if (asignacion.tipo_asignacion === 'beneficiario') {
+    return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
   }
   return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
 };

@@ -364,19 +364,24 @@ const server = http.createServer(async (req, res) => {
       }
 
       const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
+      const userRol = auth.payload?.rol ?? auth.payload?.role ?? '';
+      const isAdminOrCoordinador = userRol === 'ADMIN' || userRol === 'COORDINADOR' || userRol === 'administrador' || userRol === 'coordinador';
       const estado = url.searchParams.get('estado');
       
       try {
-        let query = sql`
-          SELECT * FROM bitacoras 
-          WHERE tecnico_id = ${tecnicoId}
-        `;
+        let query;
+        // Administradores y coordinadores ven todas las bitácoras, técnicos solo las suyas
+        if (isAdminOrCoordinador) {
+          query = sql`SELECT * FROM bitacoras`;
+        } else {
+          query = sql`SELECT * FROM bitacoras WHERE tecnico_id = ${tecnicoId}`;
+        }
         
         if (estado) {
           query = sql`${query} AND estado = ${estado}`;
         }
         
-        query = sql`${query} ORDER BY created_at DESC LIMIT 50`;
+        query = sql`${query} ORDER BY created_at DESC LIMIT 100`;
         
         const bitacoras = await query;
         json(res, 200, { success: true, data: bitacoras, total: bitacoras.length });
@@ -396,13 +401,25 @@ const server = http.createServer(async (req, res) => {
       }
 
       const bitacoraId = url.pathname.split('/')[2];
+      const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
+      const userRol = auth.payload?.rol ?? auth.payload?.role ?? '';
+      const isAdminOrCoordinador = userRol === 'ADMIN' || userRol === 'COORDINADOR' || userRol === 'administrador' || userRol === 'coordinador';
       
       try {
-        const bitacoras = await sql`
-          SELECT * FROM bitacoras 
-          WHERE id = ${bitacoraId}
-          LIMIT 1
-        `;
+        let bitacoras;
+        if (isAdminOrCoordinador) {
+          bitacoras = await sql`
+            SELECT * FROM bitacoras 
+            WHERE id = ${bitacoraId}
+            LIMIT 1
+          `;
+        } else {
+          bitacoras = await sql`
+            SELECT * FROM bitacoras 
+            WHERE id = ${bitacoraId} AND tecnico_id = ${tecnicoId}
+            LIMIT 1
+          `;
+        }
         
         if (!bitacoras.length) {
           json(res, 404, { error: 'Bitácora no encontrada' });
@@ -1136,19 +1153,34 @@ const server = http.createServer(async (req, res) => {
       }
 
       const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
-      console.log('[GET /asignaciones] tecnicoId from token:', tecnicoId);
+      const userRol = auth.payload?.rol ?? auth.payload?.role ?? '';
+      const isAdminOrCoordinador = userRol === 'ADMIN' || userRol === 'COORDINADOR' || userRol === 'administrador' || userRol === 'coordinador';
+      console.log('[GET /asignaciones] tecnicoId from token:', tecnicoId, 'rol:', userRol);
 
       try {
-        // Obtener beneficiarios reales del tecnico
-        const beneficiarios = await sql`
-          SELECT 
-            id, nombre_completo, curp, municipio, localidad, 
-            folio_saderh, cadena_productiva, telefono_contacto,
-            tecnico_id, activo, created_at, updated_at
-          FROM beneficiarios 
-          WHERE tecnico_id = ${tecnicoId} AND activo = true
-          ORDER BY created_at DESC
-        `;
+        // Administradores y coordinadores ven todos los beneficiarios, técnicos solo ven los suyos
+        let beneficiarios;
+        if (isAdminOrCoordinador) {
+          beneficiarios = await sql`
+            SELECT 
+              id, nombre_completo, curp, municipio, localidad, 
+              folio_saderh, cadena_productiva, telefono_contacto,
+              tecnico_id, activo, created_at, updated_at
+            FROM beneficiarios 
+            WHERE activo = true
+            ORDER BY created_at DESC
+          `;
+        } else {
+          beneficiarios = await sql`
+            SELECT 
+              id, nombre_completo, curp, municipio, localidad, 
+              folio_saderh, cadena_productiva, telefono_contacto,
+              tecnico_id, activo, created_at, updated_at
+            FROM beneficiarios 
+            WHERE tecnico_id = ${tecnicoId} AND activo = true
+            ORDER BY created_at DESC
+          `;
+        }
 
         console.log('[GET /asignaciones] Beneficiarios found:', beneficiarios.length);
 
