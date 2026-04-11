@@ -642,25 +642,49 @@ export default function DetalleAsignacion() {
           comentarios_beneficiario: payload.comentarios_beneficiario,
           updated_at: payload.updated_at,
         });
-        await bitacorasApi.subirFotoRostro(idBitacora, fotoRostro);
-        await bitacorasApi.subirFirma(idBitacora, firmaUri);
-        if (fotosCampo.length) await bitacorasApi.subirFotosCampo(idBitacora, fotosCampo);
         
-        // Cerrar bitacora - manejar respuesta exitosa aunque PDF falle
+        // Subir archivos (opcional - no falla el flujo si falla upload)
         try {
+          if (fotoRostro) {
+            console.log('[BITACORA] Subiendo foto rostro...');
+            await bitacorasApi.subirFotoRostro(idBitacora, fotoRostro);
+            console.log('[BITACORA] Foto rostro subida');
+          }
+        } catch (fotoError) {
+          console.warn('[BITACORA] Error subiendo foto rostro:', fotoError.message);
+        }
+        
+        try {
+          if (firmaUri) {
+            console.log('[BITACORA] Subiendo firma...');
+            await bitacorasApi.subirFirma(idBitacora, firmaUri);
+            console.log('[BITACORA] Firma subida');
+          }
+        } catch (firmaError) {
+          console.warn('[BITACORA] Error subiendo firma:', firmaError.message);
+        }
+        
+        try {
+          if (fotosCampo.length) {
+            console.log('[BITACORA] Subiendo fotos campo...');
+            await bitacorasApi.subirFotosCampo(idBitacora, fotosCampo);
+            console.log('[BITACORA] Fotos campo subidas');
+          }
+        } catch (fotosError) {
+          console.warn('[BITACORA] Error subiendo fotos campo:', fotosError.message);
+        }
+        
+        // Cerrar bitacora - nunca falla el flujo
+        try {
+          console.log('[BITACORA] Cerrando bitácora...');
           const cierreResult = await bitacorasApi.cerrar(idBitacora, { fecha_fin: now, coord_fin: `${currentGps.lat},${currentGps.lon}` });
-          // Éxito si el estado es "cerrada" (aunque PDF haya fallado)
+          console.log('[BITACORA] Cierre result:', cierreResult);
           if (cierreResult.estado !== 'cerrada') {
             console.warn('[BITACORA] Cierre con estado inesperado:', cierreResult.estado);
           }
         } catch (cerrarError: any) {
-          // Si el error es 400/404, mostrar mensaje pero considerar completado
-          const status = cerrarError?.response?.status;
-          if (status === 400 || status === 404) {
-            console.warn('[BITACORA] Error en cierre:', cerrarError.message);
-          } else {
-            throw cerrarError; // Relanzar otros errores
-          }
+          console.error('[BITACORA] Error en cierre:', cerrarError.message, 'status:', cerrarError?.response?.status);
+          // No relanzar - la bitácora ya está creada con datos
         }
         
         setOffline(false);

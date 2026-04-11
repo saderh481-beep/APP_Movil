@@ -169,28 +169,41 @@ const readMultipartForm = (req) =>
           return;
         }
         let boundary = boundaryMatch[1].replace(/^"|"$/g, '');
-        const parts = body.toString('latin1').split(`--${boundary}`);
+        const boundaryBuffer = Buffer.from(`--${boundary}`);
+        const CRLF = Buffer.from('\r\n');
         const files = [];
-        for (const part of parts) {
-          if (!part || part === '--' || part.trim() === '') continue;
-          const CRLF = '\r\n';
-          const headerEndIdx = part.indexOf(CRLF + CRLF);
-          if (headerEndIdx === -1) continue;
-          const headerBlock = part.slice(0, headerEndIdx);
-          const contentBlock = part.slice(headerEndIdx + 4);
-          const cleanContent = contentBlock.replace(new RegExp(CRLF + '--$'), '').replace(CRLF + '--$', '');
+        
+        // Buscar todas las partes
+        let start = 0;
+        while (start < body.length) {
+          const partStart = body.indexOf(boundaryBuffer, start);
+          if (partStart === -1) break;
+          const headerEnd = body.indexOf(Buffer.concat([CRLF, CRLF]), partStart);
+          if (headerEnd === -1) { start = partStart + boundaryBuffer.length; continue; }
+          
+          const headerBlock = body.slice(partStart, headerEnd).toString('latin1');
+          const contentStart = headerEnd + 4;
+          
+          // Buscar el final del contenido (CRLF + --boundary)
+          let contentEnd = body.indexOf(Buffer.concat([CRLF, boundaryBuffer]), contentStart);
+          if (contentEnd === -1) contentEnd = body.length;
+          
           const nameMatch = headerBlock.match(/name="([^"]+)"/);
           const fileNameMatch = headerBlock.match(/filename="([^"]+)"/);
-          if (!nameMatch) continue;
-          const fieldname = nameMatch[1];
-          if (fileNameMatch) {
+          
+          if (nameMatch && fileNameMatch) {
+            const fieldname = nameMatch[1];
             const originalname = fileNameMatch[1];
-            const buffer = Buffer.from(cleanContent, 'latin1');
-            files.push({ fieldname, originalname, buffer });
+            const contentBuffer = body.slice(contentStart, contentEnd - 2); // -2 para quitar CRLF final
+            files.push({ fieldname, originalname, buffer: contentBuffer });
           }
+          start = contentEnd;
         }
+        
+        console.log('[readMultipartForm] Archivos parseados:', files.length, files.map(f => f.fieldname));
         resolve({ files });
       } catch (err) {
+        console.error('[readMultipartForm] Error:', err.message);
         reject(err);
       }
     });
@@ -454,20 +467,21 @@ const server = http.createServer(async (req, res) => {
         const fechaInicio = body.fecha_inicio || new Date().toISOString();
         const coordInicio = body.coord_inicio || null;
         
-      const result = await sql`
+      const datosExtendidosJson = body.datos_extendidos ? JSON.stringify(body.datos_extendidos) : JSON.stringify({});
+        
+        const result = await sql`
         INSERT INTO bitacoras (
           id, tipo, estado, tecnico_id, beneficiario_id, 
           cadena_productiva_id, actividad_id, fecha_inicio, coord_inicio,
           actividades_desc, recomendaciones, comentarios_beneficiario,
           coordinacion_interinst, instancia_coordinada, proposito_coordinacion,
-          observaciones_coordinador, calificacion, reporte, datos_extendidos,
-          created_at, updated_at
+          observaciones_coordinador, created_at, updated_at
         ) VALUES (
           ${id}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId},
           ${cadenaProductivaId}, ${actividadId}, ${fechaInicio}, ${coordInicio},
           ${body.actividades_desc || null}, ${body.recomendaciones || null}, ${body.comentarios_beneficiario || null},
           ${body.coordinacion_interinst || false}, ${body.instancia_coordinada || null}, ${body.proposito_coordinacion || null},
-          ${body.observaciones_coordinador || null}, ${body.calificacion || null}, ${body.reporte || null}, ${body.datos_extendidos ? JSON.stringify(body.datos_extendidos) : null},
+          ${body.observaciones_coordinador || null},
           NOW(), NOW()
         )
         RETURNING *
@@ -501,15 +515,16 @@ const server = http.createServer(async (req, res) => {
           'coord_inicio', 'coord_fin', 'fecha_inicio', 'fecha_fin',
           'observaciones_coordinador', 'actividades_desc', 'recomendaciones',
           'comentarios_beneficiario', 'estado',
-          'coordinacion_interinst', 'instancia_coordinada', 'proposito_coordinacion',
-          'calificacion', 'reporte', 'datos_extendidos'
+          'coordinacion_interinst', 'instancia_coordinada', 'proposito_coordinacion'
         ];
         
         for (const field of fields) {
           if (body[field] !== undefined) {
-            const dbField = field.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-            updates.push(`${dbField} = $${paramIndex}`);
-            values.push(body[field]);
+            updates.push(`${field} = $${paramIndex}`);
+            const value = field === 'datos_extendidos' && typeof body[field] === 'object'
+              ? JSON.stringify(body[field])
+              : body[field];
+            values.push(value);
             paramIndex++;
           }
         }
@@ -553,11 +568,12 @@ const server = http.createServer(async (req, res) => {
 
       const bitacoraId = url.pathname.split('/')[2];
       const body = await readBody(req);
+      const fechaFin = body.fecha_fin || new Date().toISOString();
+      const coordFin = body.coord_fin || null;
+      
+      console.log('[POST /bitacoras/:id/cerrar] Intentando cerrar:', bitacoraId, 'fecha_fin:', fechaFin, 'coord_fin:', coordFin);
       
       try {
-        const fechaFin = body.fecha_fin || new Date().toISOString();
-        const coordFin = body.coord_fin || null;
-        
         const result = await sql`
           UPDATE bitacoras 
           SET estado = 'cerrada', 
@@ -568,11 +584,14 @@ const server = http.createServer(async (req, res) => {
           RETURNING *
         `;
         
+        console.log('[POST /bitacoras/:id/cerrar] Resultado:', result.length ? 'actualizado' : 'no encontrado');
+        
         if (!result.length) {
           json(res, 404, { error: 'Bitácora no encontrada' });
           return;
         }
         
+        console.log('[POST /bitacoras/:id/cerrar] Estado actualizado a: cerrar, bitácora:', bitacoraId);
         json(res, 200, { success: true, estado: 'cerrada', data: result[0] });
       } catch (dbError) {
         console.error('[POST /bitacoras/:id/cerrar] Error DB:', dbError);

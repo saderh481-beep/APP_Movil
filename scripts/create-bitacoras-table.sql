@@ -27,10 +27,7 @@ CREATE TABLE IF NOT EXISTS bitacoras (
     creada_offline BOOLEAN DEFAULT FALSE,
     sync_id VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Índices para mejor rendimiento
-    CONSTRAINT fk_tecnico FOREIGN KEY (tecnico_id) REFERENCES usuarios(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Índices para consultas frecuentes
@@ -40,6 +37,14 @@ CREATE INDEX IF NOT EXISTS idx_bitacoras_beneficiario ON bitacoras(beneficiario_
 CREATE INDEX IF NOT EXISTS idx_bitacoras_actividad ON bitacoras(actividad_id);
 CREATE INDEX IF NOT EXISTS idx_bitacoras_fecha_inicio ON bitacoras(fecha_inicio);
 CREATE INDEX IF NOT EXISTS idx_bitacoras_sync_id ON bitacoras(sync_id);
+
+-- Agregar columnas faltantes si no existen
+ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS coordinacion_interinst BOOLEAN DEFAULT FALSE;
+ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS instancia_coordinada VARCHAR(255);
+ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS proposito_coordinacion TEXT;
+ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS calificacion VARCHAR(10);
+ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS reporte TEXT;
+ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS datos_extendidos JSONB;
 
 -- Trigger para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
