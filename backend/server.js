@@ -437,18 +437,24 @@ const server = http.createServer(async (req, res) => {
         const fechaInicio = body.fecha_inicio || new Date().toISOString();
         const coordInicio = body.coord_inicio || null;
         
-        const result = await sql`
-          INSERT INTO bitacoras (
-            id, tipo, estado, tecnico_id, beneficiario_id, 
-            cadena_productiva_id, actividad_id, fecha_inicio, coord_inicio,
-            created_at, updated_at
-          ) VALUES (
-            ${id}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId},
-            ${cadenaProductivaId}, ${actividadId}, ${fechaInicio}, ${coordInicio},
-            NOW(), NOW()
-          )
-          RETURNING *
-        `;
+      const result = await sql`
+        INSERT INTO bitacoras (
+          id, tipo, estado, tecnico_id, beneficiario_id, 
+          cadena_productiva_id, actividad_id, fecha_inicio, coord_inicio,
+          actividades_desc, recomendaciones, comentarios_beneficiario,
+          coordinacion_interinst, instancia_coordinada, proposito_coordinacion,
+          observaciones_coordinador, calificacion, reporte, datos_extendidos,
+          created_at, updated_at
+        ) VALUES (
+          ${id}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId},
+          ${cadenaProductivaId}, ${actividadId}, ${fechaInicio}, ${coordInicio},
+          ${body.actividades_desc || null}, ${body.recomendaciones || null}, ${body.comentarios_beneficiario || null},
+          ${body.coordinacion_interinst || false}, ${body.instancia_coordinada || null}, ${body.proposito_coordinacion || null},
+          ${body.observaciones_coordinador || null}, ${body.calificacion || null}, ${body.reporte || null}, ${body.datos_extendidos ? JSON.stringify(body.datos_extendidos) : null},
+          NOW(), NOW()
+        )
+        RETURNING *
+      `;
         
         json(res, 201, { success: true, id_bitacora: id, id: id, data: result[0] });
       } catch (dbError) {
@@ -477,7 +483,9 @@ const server = http.createServer(async (req, res) => {
         const fields = [
           'coord_inicio', 'coord_fin', 'fecha_inicio', 'fecha_fin',
           'observaciones_coordinador', 'actividades_desc', 'recomendaciones',
-          'comentarios_beneficiario', 'estado'
+          'comentarios_beneficiario', 'estado',
+          'coordinacion_interinst', 'instancia_coordinada', 'proposito_coordinacion',
+          'calificacion', 'reporte', 'datos_extendidos'
         ];
         
         for (const field of fields) {

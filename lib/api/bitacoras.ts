@@ -133,10 +133,12 @@ const normalizeBitacora = (raw: unknown): Bitacora => {
     pdf_version: toNumber(rec.pdf_version, 0),
     pdf_url_actual: rec.pdf_url_actual ? String(rec.pdf_url_actual) : null,
     pdf_original_url: rec.pdf_original_url ? String(rec.pdf_original_url) : null,
-    creada_offline: !!rec.creada_offline,
-    sync_id: rec.sync_id ? String(rec.sync_id) : null,
     created_at: String(rec.created_at ?? nowIso()),
     updated_at: String(rec.updated_at ?? nowIso()),
+    // Nuevos campos
+    calificacion: rec.calificacion !== undefined ? toNumber(rec.calificacion, 0) : undefined,
+    reporte: rec.reporte ? String(rec.reporte) : undefined,
+    datos_extendidos: rec.datos_extendidos ? (typeof rec.datos_extendidos === 'string' ? JSON.parse(rec.datos_extendidos) : rec.datos_extendidos) : undefined,
     // Legacy
     id_bitacora: String(rec.id ?? ''),
     uuid_movil: String(rec.uuid_movil ?? ''),
