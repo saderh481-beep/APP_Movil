@@ -61,13 +61,19 @@ CREATE TABLE IF NOT EXISTS bitacoras (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de actividades
+-- Tabla de actividades ( schema actualizado para soportar asignaciones )
 CREATE TABLE IF NOT EXISTS actividades (
     id VARCHAR(255) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     descripcion TEXT,
     cadena_productiva_id VARCHAR(255),
+    tecnico_id VARCHAR(255),
+    beneficiario_id VARCHAR(255),
+    fecha_limite DATE,
+    prioridad VARCHAR(20) DEFAULT 'MEDIA',
+    completado BOOLEAN DEFAULT false,
     activo BOOLEAN DEFAULT true,
+    created_by VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -94,6 +100,10 @@ CREATE INDEX IF NOT EXISTS idx_bitacoras_beneficiario ON bitacoras(beneficiario_
 CREATE INDEX IF NOT EXISTS idx_bitacoras_fecha_inicio ON bitacoras(fecha_inicio DESC);
 CREATE INDEX IF NOT EXISTS idx_bitacoras_sync_id ON bitacoras(sync_id);
 CREATE INDEX IF NOT EXISTS idx_actividades_cadena ON actividades(cadena_productiva_id);
+CREATE INDEX IF NOT EXISTS idx_actividades_tecnico ON actividades(tecnico_id);
+CREATE INDEX IF NOT EXISTS idx_actividades_beneficiario ON actividades(beneficiario_id);
+CREATE INDEX IF NOT EXISTS idx_actividades_fecha_limite ON actividades(fecha_limite);
+CREATE INDEX IF NOT EXISTS idx_actividades_completado ON actividades(completado);
 
 -- Trigger para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()

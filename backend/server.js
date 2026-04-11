@@ -1340,12 +1340,72 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      json(res, 200, {
-        sync_ts: new Date().toISOString(),
-        beneficiarios: [],
-        actividades: [],
-        cadenas: [],
-      });
+      const tecnicoId = auth.payload?.id ?? auth.payload?.sub ?? auth.payload?.tecnico_id;
+      console.log('[GET /sync/delta] Tecnico ID:', tecnicoId);
+
+      try {
+        // Obtener beneficiarios asignados al técnico
+        const beneficiarios = await sql`
+          SELECT 
+            id, nombre_completo, curp, municipio, localidad,
+            folio_saderh, cadena_productiva, telefono_contacto,
+            tecnico_id, activo, created_at, updated_at
+          FROM beneficiarios 
+          WHERE tecnico_id = ${tecnicoId} AND activo = true
+          ORDER BY created_at DESC
+        `;
+
+        // Obtener actividades del técnico
+        const actividades = await sql`
+          SELECT 
+            id, descripcion, fecha_limite, prioridad, completado,
+            tecnico_id, beneficiario_id, activo, created_at, updated_at
+          FROM actividades 
+          WHERE tecnico_id = ${tecnicoId} AND activo = true
+          ORDER BY fecha_limite ASC NULLS LAST
+        `;
+
+        console.log('[GET /sync/delta] Beneficiarios:', beneficiarios.length, 'Actividades:', actividades.length);
+
+        json(res, 200, {
+          sync_ts: new Date().toISOString(),
+          beneficiarios: beneficiarios.map(b => ({
+            id: b.id,
+            nombre_completo: b.nombre_completo,
+            curp: b.curp,
+            municipio: b.municipio,
+            localidad: b.localidad,
+            folio_saderh: b.folio_saderh,
+            cadena_productiva: b.cadena_productiva,
+            telefono_contacto: b.telefono_contacto,
+            id_tecnico: b.tecnico_id,
+            activo: b.activo,
+            created_at: b.created_at,
+            updated_at: b.updated_at,
+          })),
+          actividades: actividades.map(a => ({
+            id: a.id,
+            descripcion: a.descripcion,
+            fecha_limite: a.fecha_limite,
+            prioridad: a.prioridad,
+            completado: a.completado,
+            id_tecnico: a.tecnico_id,
+            beneficiario_id: a.beneficiario_id,
+            activo: a.activo,
+            created_at: a.created_at,
+            updated_at: a.updated_at,
+          })),
+          cadenas: [],
+        });
+      } catch (dbError) {
+        console.error('[GET /sync/delta] Error DB:', dbError);
+        json(res, 200, {
+          sync_ts: new Date().toISOString(),
+          beneficiarios: [],
+          actividades: [],
+          cadenas: [],
+        });
+      }
       return;
     }
 
