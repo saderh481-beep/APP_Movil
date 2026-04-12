@@ -762,7 +762,7 @@ const server = http.createServer(async (req, res) => {
         
         const result = await sql`
           UPDATE bitacoras 
-          SET fotos_campo = ${JSON.stringify(fotosUrls)}, updated_at = NOW()
+          SET fotos_campo = ${JSON.stringify(fotosUrls)}::jsonb, updated_at = NOW()
           WHERE id = ${bitacoraId}
           RETURNING *
         `;
@@ -1027,7 +1027,7 @@ const server = http.createServer(async (req, res) => {
         
         const result = await sql`
           UPDATE bitacoras 
-          SET fotos_campo = ${JSON.stringify(fotos)}, updated_at = NOW()
+          SET fotos_campo = ${JSON.stringify(fotos)}::jsonb, updated_at = NOW()
           WHERE id = ${bitacoraId}
           RETURNING *
         `;
@@ -1066,7 +1066,7 @@ const server = http.createServer(async (req, res) => {
         
         const result = await sql`
           UPDATE bitacoras 
-          SET fotos_campo = ${JSON.stringify(urls)}, updated_at = NOW()
+          SET fotos_campo = ${JSON.stringify(urls)}::jsonb, updated_at = NOW()
           WHERE id = ${bitacoraId}
           RETURNING *
         `;
