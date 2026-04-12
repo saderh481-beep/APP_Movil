@@ -251,7 +251,15 @@ const syncBitacora = async (
     clearTimeout(timeout);
     
     if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
+      let errorMsg = `Error ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMsg = errorData.error;
+        }
+      } catch { /* ignore */ }
+      console.error(`[SYNC] Error del servidor:`, errorMsg);
+      return { success: false, error: errorMsg };
     }
     
     return { success: true };

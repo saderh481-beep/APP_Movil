@@ -490,7 +490,16 @@ const server = http.createServer(async (req, res) => {
         json(res, 201, { success: true, id_bitacora: id, id: id, data: result[0] });
       } catch (dbError) {
         console.error('[POST /bitacoras] Error DB:', dbError);
-        json(res, 500, { error: 'Error al crear bitácora' });
+        const errorMsg = dbError.message || dbError.toString();
+        if (errorMsg.includes('null value') && errorMsg.includes('actividades_desc')) {
+          json(res, 400, { error: 'El campo actividades_desc es requerido' });
+        } else if (errorMsg.includes('null value') && errorMsg.includes('coordinacion_interinst')) {
+          json(res, 400, { error: 'El campo coordinacion_interinst es requerido' });
+        } else if (errorMsg.includes('invalid input syntax for type uuid')) {
+          json(res, 400, { error: 'El ID debe ser un UUID válido' });
+        } else {
+          json(res, 500, { error: 'Error al crear bitácora', details: process.env.NODE_ENV === 'development' ? errorMsg : undefined });
+        }
       }
       return;
     }
@@ -1302,6 +1311,8 @@ const server = http.createServer(async (req, res) => {
           continue;
         }
 
+        const actividadesDesc = payload?.actividades_desc || '';
+        
         if (operacion === 'crear_bitacora') {
           try {
             const bitacoraId = `bitacora-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1309,10 +1320,10 @@ const server = http.createServer(async (req, res) => {
             await sql`
               INSERT INTO bitacoras (
                 id, tipo, estado, tecnico_id, beneficiario_id, actividad_id, fecha_inicio,
-                sync_id, created_at, updated_at
+                sync_id, actividades_desc, coordinacion_interinst, created_at, updated_at
               ) VALUES (
                 ${bitacoraId}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId}, ${actividadId}, ${fechaInicio},
-                ${syncId}, NOW(), NOW()
+                ${syncId}, ${actividadesDesc}, false, NOW(), NOW()
               )
             `;
 
