@@ -2,6 +2,7 @@ import { Colors } from '@/constants/Colors';
 import { ASIG_CACHE_KEY, LAST_SYNC_TIME_KEY, CACHE_VALIDITY_MS, BITACORAS_CERRADAS_CACHE_KEY, BITACORAS_CERRADAS_TTL } from '@/constants/CacheKeys';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
 import { asignacionesApi, bitacorasApi, offlineQueue, syncApi } from '@/lib/api';
+import { getSyncState } from '@/lib/sync-service';
 import type { AsignacionesResponse } from '@/types/models';
 import { useAuthStore } from '@/store/authStore';
 import { Asignacion } from '@/types/models';
@@ -110,6 +111,7 @@ export default function Dashboard() {
   const [pendientes, setPendientes] = useState(0);
   const [queueFillPercent, setQueueFillPercent] = useState(0);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'warning' | 'error'>('synced');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   const pendientesAsigs = useMemo(() => asigs.filter(a => !a.completado).length, [asigs]);
 
@@ -151,6 +153,7 @@ export default function Dashboard() {
     // Actualizar estado después de sincronizar
     if (remaining === 0) {
       setSyncStatus('synced');
+      setLastSyncTime(new Date().toISOString());
     } else if (remaining <= 5) {
       setSyncStatus('pending');
     } else if (remaining <= 10) {
@@ -158,6 +161,14 @@ export default function Dashboard() {
     } else {
       setSyncStatus('error');
     }
+    
+    // Obtener último sync del servicio
+    try {
+      const state = await getSyncState();
+      if (state.lastSync) {
+        setLastSyncTime(state.lastSync);
+      }
+    } catch {}
     
     return r.sincronizadas ?? 0;
   }, []);
@@ -480,15 +491,20 @@ export default function Dashboard() {
         <View style={s.syncStatusRow}>
           <View style={[s.syncStatusDot, s[`syncDot${syncStatus.charAt(0).toUpperCase() + syncStatus.slice(1)}`]]} />
           <Text style={s.syncStatusText}>
-            {syncStatus === 'synced' && '✓ Todo sincronizado'}
+            {syncStatus === 'synced' && '✓ Sincronizado'}
             {syncStatus === 'pending' && `⏳ ${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`}
-            {syncStatus === 'warning' && `⚠️ ${pendientes} pendientes - Sincroniza pronto`}
-            {syncStatus === 'error' && `🔴 ${pendientes} pendientes - Cola llena`}
+            {syncStatus === 'warning' && `⚠️ ${pendientes} pendientes`}
+            {syncStatus === 'error' && `🔴 Cola llena`}
           </Text>
         </View>
         {pendientes > 0 && (
           <Text style={s.syncStatusSubtext}>
-            Se sincroniza automáticamente al reconectar
+            📶 Se sincroniza al reconectar internet
+          </Text>
+        )}
+        {lastSyncTime && syncStatus === 'synced' && (
+          <Text style={s.syncStatusSubtext}>
+            ✓ Última sincronización: {new Date(lastSyncTime).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
           </Text>
         )}
       </View>

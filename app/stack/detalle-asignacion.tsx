@@ -698,18 +698,20 @@ export default function DetalleAsignacion() {
         await AsyncStorage.removeItem(BITACORAS_CERRADAS_CACHE_KEY);
         await AsyncStorage.setItem('@saderh:refresh_bitacoras', Date.now().toString());
 
-        Alert.alert('Visita completada', 'Se guardó bitácora, validación de rostro y firma.', [
-          { text: 'Finalizar', onPress: () => router.back() },
-        ]);
+        Alert.alert(
+          '✅ ¡VISITA COMPLETADA!',
+          '🎉 La bitácora se guardó correctamente.\n\n📸 Foto de rostro: ✓\n✍️ Firma: ✓\n\n¡Gracias por tu trabajo!',
+          [{ text: '🎯 Finalizar', onPress: () => router.back(), style: 'default' }],
+        );
       } catch (e) {
         if (syncApi.isNetworkError(e)) {
           setOffline(true);
           await guardarPendienteOffline(payload as any, firmaUri);
           await AsyncStorage.removeItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion ?? id)));
           Alert.alert(
-            'Guardado en modo offline',
-            'Se perdió conexión durante el envío. La visita quedó guardada y se sincronizará automáticamente.',
-            [{ text: 'Aceptar', onPress: () => router.back() }],
+            '📱 MODO OFFLINE',
+            '⚠️ Se perdió la conexión.\n\n✅ La visita fue guardada localmente.\n\n📶 Se sincronizará automáticamente cuando recuperes conexión a internet.',
+            [{ text: 'Entendido ✓', onPress: () => router.back() }],
           );
           return;
         }
