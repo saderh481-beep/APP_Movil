@@ -677,7 +677,13 @@ export default function DetalleAsignacion() {
         // Cerrar bitacora - nunca falla el flujo
         try {
           console.log('[BITACORA] Cerrando bitácora...');
-          const cierreResult = await bitacorasApi.cerrar(idBitacora, { fecha_fin: now, coord_fin: `${currentGps.lat},${currentGps.lon}` });
+          const cierreResult = await bitacorasApi.cerrar(idBitacora, { 
+            fecha_fin: now, 
+            coord_fin: `${currentGps.lat},${currentGps.lon}`,
+            calificacion: datos.calidad_servicio,
+            reporte: datos.observaciones,
+            datos_extendidos: datos,
+          });
           console.log('[BITACORA] Cierre result:', cierreResult);
           if (cierreResult.estado !== 'cerrada') {
             console.warn('[BITACORA] Cierre con estado inesperado:', cierreResult.estado);

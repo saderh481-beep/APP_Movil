@@ -232,11 +232,15 @@ export interface CrearBitacoraPayload {
   fecha_inicio: string;
   coord_inicio?: string;
   sync_id?: string;
+  creada_offline?: boolean;
 }
 
 export interface BitacoraCerrarPayload {
   fecha_fin: string;
   coord_fin?: string;
+  calificacion?: number;
+  reporte?: string;
+  datos_extendidos?: Record<string, unknown>;
 }
 
 export interface BitacoraUpdatePayload {

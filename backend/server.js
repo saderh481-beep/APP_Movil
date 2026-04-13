@@ -469,19 +469,24 @@ const server = http.createServer(async (req, res) => {
         
       const datosExtendidosJson = body.datos_extendidos ? JSON.stringify(body.datos_extendidos) : JSON.stringify({});
         
-        const result = await sql`
+        const createdOffline = body.creada_offline === true || body.sync_id?.startsWith('offline-') ? true : false;
+      const syncId = body.sync_id || null;
+      
+      const result = await sql`
         INSERT INTO bitacoras (
           id, tipo, estado, tecnico_id, beneficiario_id, 
           cadena_productiva_id, actividad_id, fecha_inicio, coord_inicio,
           actividades_desc, recomendaciones, comentarios_beneficiario,
           coordinacion_interinst, instancia_coordinada, proposito_coordinacion,
-          observaciones_coordinador, created_at, updated_at
+          observaciones_coordinador, calificacion, reporte, datos_extendidos,
+          creada_offline, sync_id, created_at, updated_at
         ) VALUES (
           ${id}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId},
           ${cadenaProductivaId}, ${actividadId}, ${fechaInicio}, ${coordInicio},
           ${body.actividades_desc || null}, ${body.recomendaciones || null}, ${body.comentarios_beneficiario || null},
           ${body.coordinacion_interinst || false}, ${body.instancia_coordinada || null}, ${body.proposito_coordinacion || null},
-          ${body.observaciones_coordinador || null},
+          ${body.observaciones_coordinador || null}, ${body.calificacion || null}, ${body.reporte || null}, ${datosExtendidosJson},
+          ${createdOffline}, ${syncId},
           NOW(), NOW()
         )
         RETURNING *
@@ -579,8 +584,11 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const fechaFin = body.fecha_fin || new Date().toISOString();
       const coordFin = body.coord_fin || null;
+      const calificacion = body.calificacion ?? null;
+      const reporte = body.reporte || null;
+      const datosExtendidosJson = body.datos_extendidos ? JSON.stringify(body.datos_extendidos) : null;
       
-      console.log('[POST /bitacoras/:id/cerrar] Intentando cerrar:', bitacoraId, 'fecha_fin:', fechaFin, 'coord_fin:', coordFin);
+      console.log('[POST /bitacoras/:id/cerrar] Intentando cerrar:', bitacoraId, 'fecha_fin:', fechaFin, 'coord_fin:', coordFin, 'calificacion:', calificacion);
       
       try {
         const result = await sql`
@@ -588,6 +596,9 @@ const server = http.createServer(async (req, res) => {
           SET estado = 'cerrada', 
               fecha_fin = ${fechaFin}, 
               coord_fin = ${coordFin},
+              calificacion = ${calificacion},
+              reporte = ${reporte},
+              datos_extendidos = ${datosExtendidosJson},
               updated_at = NOW()
           WHERE id = ${bitacoraId}
           RETURNING *
@@ -600,7 +611,7 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         
-        console.log('[POST /bitacoras/:id/cerrar] Estado actualizado a: cerrar, bitácora:', bitacoraId);
+        console.log('[POST /bitacoras/:id/cerrar] Estado actualizado a: cerrada, bitácora:', bitacoraId);
         json(res, 200, { success: true, estado: 'cerrada', data: result[0] });
       } catch (dbError) {
         console.error('[POST /bitacoras/:id/cerrar] Error DB:', dbError);
