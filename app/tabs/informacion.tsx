@@ -286,6 +286,10 @@ const s = StyleSheet.create({
   infoLabel: { fontSize: fontSize.sm, color: Colors.textSecondary },
   infoValue: { fontSize: fontSize.sm, color: Colors.textPrimary, fontWeight: '600' },
   
+  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: rh(8), borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  rowL: { fontSize: fontSize.sm, color: Colors.textSecondary, flex: 1 },
+  rowV: { fontSize: fontSize.sm, color: Colors.textPrimary, fontWeight: '600', flex: 1, textAlign: 'right' },
+  
   exportBtn: { backgroundColor: Colors.guinda, paddingVertical: rh(12), borderRadius: radius.md, marginTop: rh(8) },
   exportBtnText: { fontSize: fontSize.base, fontWeight: '700', color: Colors.white, textAlign: 'center' },
   

@@ -651,7 +651,8 @@ export default function DetalleAsignacion() {
             console.log('[BITACORA] Foto rostro subida');
           }
         } catch (fotoError) {
-          console.warn('[BITACORA] Error subiendo foto rostro:', fotoError.message);
+          const fotoErrMsg = fotoError instanceof Error ? fotoError.message : String(fotoError);
+          console.warn('[BITACORA] Error subiendo foto rostro:', fotoErrMsg);
         }
         
         try {
@@ -661,7 +662,8 @@ export default function DetalleAsignacion() {
             console.log('[BITACORA] Firma subida');
           }
         } catch (firmaError) {
-          console.warn('[BITACORA] Error subiendo firma:', firmaError.message);
+          const firmaErrMsg = firmaError instanceof Error ? firmaError.message : String(firmaError);
+          console.warn('[BITACORA] Error subiendo firma:', firmaErrMsg);
         }
         
         try {
@@ -671,7 +673,8 @@ export default function DetalleAsignacion() {
             console.log('[BITACORA] Fotos campo subidas');
           }
         } catch (fotosError) {
-          console.warn('[BITACORA] Error subiendo fotos campo:', fotosError.message);
+          const fotosErrMsg = fotosError instanceof Error ? fotosError.message : String(fotosError);
+          console.warn('[BITACORA] Error subiendo fotos campo:', fotosErrMsg);
         }
         
         // Cerrar bitacora - nunca falla el flujo
@@ -682,7 +685,7 @@ export default function DetalleAsignacion() {
             coord_fin: `${currentGps.lat},${currentGps.lon}`,
             calificacion: datos.calidad_servicio,
             reporte: datos.observaciones,
-            datos_extendidos: datos,
+            datos_extendidos: datos as unknown as Record<string, unknown>,
           });
           console.log('[BITACORA] Cierre result:', cierreResult);
           if (cierreResult.estado !== 'cerrada') {

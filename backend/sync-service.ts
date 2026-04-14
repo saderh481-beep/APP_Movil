@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 interface SyncState {
   lastSync: string | null;
   pendingUploads: number;
@@ -51,7 +48,7 @@ const storage = new SimpleStorage();
 
 const SYNC_STATE_KEY = 'sync_state';
 
-let syncInterval: NodeJS.Timeout | null = null;
+let syncInterval: ReturnType<typeof setInterval> | null = null;
 let isSyncing = false;
 
 export const SyncService = {
