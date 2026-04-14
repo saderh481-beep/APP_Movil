@@ -6,13 +6,13 @@
     "noImplicitAny": false,
     "strictNullChecks": false,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     },
     "lib": ["ES2020", "DOM"],
     "target": "ES2020",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "jsx": "react-native"
   },
   "include": [
     "**/*.ts",

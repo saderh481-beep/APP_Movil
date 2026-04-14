@@ -103,10 +103,11 @@ export default function RootLayout() {
     };
   }, [isAuthenticated]);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return null;
+  }
 
   return (
-    // @ts-ignore - GestureHandlerRootView en newer versiones
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="index" />
