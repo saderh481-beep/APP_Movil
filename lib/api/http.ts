@@ -26,6 +26,23 @@ const extractError = (status: number, json: unknown): string => {
   return `Error ${status}`;
 };
 
+const validateSecureUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '10.0.2.2';
+    if (isLocalhost) {
+      return true;
+    }
+    if (parsed.protocol !== 'https:') {
+      console.warn('[SECURITY] URL no segura detectada:', url);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const isNetworkError = (error: unknown): boolean => {
   if (!(error instanceof Error)) return false;
   const msg = error.message.toLowerCase();
@@ -93,6 +110,10 @@ async function httpWithRetry<T>(
   try {
     const base = await getBaseUrl(baseUrlOverride);
     const url = `${base}${path}`;
+    
+    if (!validateSecureUrl(url)) {
+      throw new Error('Conexión no segura rechazada. Usa HTTPS.');
+    }
     
     console.log(`[HTTP ${attempt + 1}/${MAX_RETRIES + 1}] ${method} ${path}`);
     
@@ -183,7 +204,13 @@ export async function httpMultipart<T>(method: string, path: string, form: FormD
   const timer = setTimeout(() => ctrl.abort(), API_CONFIG.TIMEOUT_MS);
   try {
     const base = await getBaseUrl();
-    const res = await fetch(`${base}${path}`, {
+    const url = `${base}${path}`;
+    
+    if (!validateSecureUrl(url)) {
+      throw new Error('Conexión no segura rechazada. Usa HTTPS.');
+    }
+    
+    const res = await fetch(url, {
       method,
       signal: ctrl.signal,
       headers: {

@@ -440,8 +440,7 @@ export default function Dashboard() {
           {badge !== undefined && <View style={s.secB}><Text style={s.secBT}>{badge} visita{badge !== 1 ? 's' : ''}</Text></View>}
         </View>
         {items.map(item => (
-          // @ts-ignore
-          <VisitaCard key={item.id_asignacion} item={item} />
+          <VisitaCard key={String(item.id_asignacion ?? item.id)} item={item} />
         ))}
       </View>
     );

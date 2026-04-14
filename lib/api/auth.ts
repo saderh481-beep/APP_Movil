@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { KEYS } from './config';
 import { http, isLikelyNetworkError } from './http';
 import { isRecord, unwrapData, normalizeAccessCode, nowIso } from './utils';
@@ -83,13 +84,24 @@ const getOfflineAuthSession = async (): Promise<OfflineAuthSession | null> => {
 
 export const getToken = async () => {
   try {
-    console.log('[API] Intentando obtener token de AsyncStorage...');
-    const token = await AsyncStorage.getItem(KEYS.TOKEN);
-    console.log('[API] Token encontrado:', token ? 'Sí, longitud: ' + token.length : 'No');
+    console.log('[API] Intentando obtener token de SecureStore...');
+    let token = await SecureStore.getItemAsync(KEYS.TOKEN);
+    if (token && token.trim().length > 0) {
+      console.log('[API] Token encontrado en SecureStore, longitud:', token.length);
+      return token;
+    }
+    console.log('[API] Token no encontrado en SecureStore, buscando en AsyncStorage...');
+    token = await AsyncStorage.getItem(KEYS.TOKEN);
+    console.log('[API] Token encontrado en AsyncStorage:', token ? 'Sí, longitud: ' + token.length : 'No');
     return token && token.trim().length > 0 ? token : undefined;
   } catch (error) {
-    console.error('Error obteniendo token de AsyncStorage:', error);
-    return undefined;
+    console.error('Error obteniendo token:', error);
+    try {
+      const token = await AsyncStorage.getItem(KEYS.TOKEN);
+      return token && token.trim().length > 0 ? token : undefined;
+    } catch {
+      return undefined;
+    }
   }
 };
 
@@ -141,6 +153,9 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(KEYS.TOKEN);
+    } catch {}
     await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
   },
 

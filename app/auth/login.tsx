@@ -4,6 +4,7 @@ import { Validators } from '@/lib/validators';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -172,22 +173,18 @@ export default function Login() {
         <View style={s.gradientTop} />
         <View style={s.gradientBottom} />
         
-        {/* Decorative Circles */}
-        {/* @ts-ignore */}
-        <Animated.View style={[s.decorCircle1, { transform: [{ scale: pulseAnim }] }]} />
-        {/* @ts-ignore */}
-        <Animated.View style={[s.decorCircle2, { opacity: fadeAnim }]} />
+      {/* Decorative Circles */}
+      <Animated.View style={[s.decorCircle1, { transform: [{ scale: pulseAnim }] }]} />
+      <Animated.View style={[s.decorCircle2, { opacity: fadeAnim }]} />
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {/* @ts-ignore */}
           <Animated.View style={[s.head, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <View style={s.logoContainer}>
               <View style={s.logoCircle}>
                 <Text style={s.logoIcon}>🌾</Text>
               </View>
-              {/* @ts-ignore */}
               <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                 <Text style={s.gov}>GOBIERNO DEL ESTADO DE HIDALGO</Text>
               </Animated.View>
@@ -196,7 +193,6 @@ export default function Login() {
             <Text style={s.sub}>Sistema de Gestión de Campo</Text>
           </Animated.View>
 
-          {/* @ts-ignore */}
           <Animated.View style={[s.card, { transform: [{ scale: scaleAnim }, { translateX: shakeAnim }] }]}>
             {/* Decorative top border */}
             <View style={s.cardAccent} />
@@ -226,7 +222,6 @@ export default function Login() {
                       status === 'error' && s.dotError,
                     ]}>
                       {i < codigo.length && (
-                        // @ts-ignore
                         <Animated.View style={[s.dotInner, status === 'success' && s.dotInnerSuccess]} />
                       )}
                     </View>
@@ -250,7 +245,6 @@ export default function Login() {
               />
 
               {errorMessage ? (
-                // @ts-ignore
                 <Animated.View style={s.errorContainer}>
                   <Text style={s.errorIcon}>⚠️</Text>
                   <Text style={s.errorText}>{errorMessage}</Text>
@@ -265,7 +259,6 @@ export default function Login() {
               )}
 
               {status === 'success' && (
-                // @ts-ignore
                 <Animated.View style={s.successContainer}>
                   <Text style={s.successIcon}>✓</Text>
                   <Text style={s.successText}>Autenticación exitosa</Text>
@@ -311,10 +304,9 @@ export default function Login() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* @ts-ignore */}
           <Animated.View style={[s.footer, { opacity: fadeAnim }]}>
             <Text style={s.footerText}>Secretaría de Agricultura de Hidalgo</Text>
-            <Text style={s.footerVersion}>Versión 1.0.0</Text>
+            <Text style={s.footerVersion}>Versión {Constants?.expoConfig?.version || '1.0.0'}</Text>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>

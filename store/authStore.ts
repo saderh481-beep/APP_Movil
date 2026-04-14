@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 import { KEYS } from '../lib/api';
 import { Usuario } from '../types/models';
@@ -76,51 +77,80 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true, isOffline: false,
 
   setAuth: async (token, usuario) => {
-    console.log('[AUTH STORE] Guardando token en AsyncStorage...');
-    await AsyncStorage.multiSet([[KEYS.TOKEN, token], [KEYS.USUARIO, JSON.stringify(usuario)]]);
-    
-    // Verificar que se guardó correctamente
-    const storedToken = await AsyncStorage.getItem(KEYS.TOKEN);
-    console.log('[AUTH STORE] Token almacenado correctamente:', storedToken ? 'Sí' : 'NO');
+    console.log('[AUTH STORE] Guardando token en SecureStore...');
+    try {
+      await SecureStore.setItemAsync(KEYS.TOKEN, token, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED,
+      });
+      await AsyncStorage.setItem(KEYS.USUARIO, JSON.stringify(usuario));
+      
+      const storedToken = await SecureStore.getItemAsync(KEYS.TOKEN);
+      console.log('[AUTH STORE] Token almacenado correctamente:', storedToken ? 'Sí' : 'NO');
+    } catch (error) {
+      console.error('[AUTH STORE] Error guardando en SecureStore:', error);
+      await AsyncStorage.setItem(KEYS.TOKEN, token);
+      await AsyncStorage.setItem(KEYS.USUARIO, JSON.stringify(usuario));
+    }
     
     set({ token, tecnico: usuario, isAuthenticated: true });
   },
 
   clearAuth: async () => {
+    try {
+      await SecureStore.deleteItemAsync(KEYS.TOKEN);
+    } catch {}
     await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
     set({ token: null, tecnico: null, isAuthenticated: false });
   },
 
   loadAuth: async () => {
+    let token: string | null = null;
+    let str: string | null = null;
+    
     try {
-      const [[, token], [, str]] = await AsyncStorage.multiGet([KEYS.TOKEN, KEYS.USUARIO]);
-      if (token && str) {
-        // Validar token JWT antes de aceptar la sesión
-        if (!isTokenValid(token)) {
-          console.warn('Token inválido o expirado, limpiando sesión');
-          await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-          set({ isLoading: false });
-          return;
-        }
-        // Validar que str sea JSON válido antes de parsear
-        const trimmed = str.trim();
-        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-          try {
-            const usuario = JSON.parse(str) as Usuario;
-            set({ token, tecnico: usuario, isAuthenticated: true });
-          } catch {
-            // JSON inválido - limpiar
-            await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-          }
-        } else {
-          // Formato inválido - limpiar
-          await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-        }
-      }
-    } catch (e) {
-      console.error('Error cargando sesión:', e);
+      token = await SecureStore.getItemAsync(KEYS.TOKEN);
+    } catch {}
+    
+    if (!token) {
+      try {
+        token = await AsyncStorage.getItem(KEYS.TOKEN);
+      } catch {}
     }
-    finally { set({ isLoading: false }); }
+    
+    try {
+      str = await AsyncStorage.getItem(KEYS.USUARIO);
+    } catch {}
+    
+    if (token && str) {
+      if (!isTokenValid(token)) {
+        console.warn('Token inválido o expirado, limpiando sesión');
+        try {
+          await SecureStore.deleteItemAsync(KEYS.TOKEN);
+        } catch {}
+        await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
+        set({ isLoading: false });
+        return;
+      }
+      const trimmed = str.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          const usuario = JSON.parse(str) as Usuario;
+          set({ token, tecnico: usuario, isAuthenticated: true });
+        } catch {
+          try {
+            await SecureStore.deleteItemAsync(KEYS.TOKEN);
+          } catch {}
+          await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
+        }
+      } else {
+        try {
+          await SecureStore.deleteItemAsync(KEYS.TOKEN);
+        } catch {}
+        await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
+      }
+    } else {
+      set({ isLoading: false });
+    }
   },
 
   setOffline: (v) => set({ isOffline: v }),
