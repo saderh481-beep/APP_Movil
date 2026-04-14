@@ -67,8 +67,8 @@ const REFRESH_BITACORAS_KEY = '@saderh:refresh_bitacoras';
 
 const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): Asignacion => ({
   id: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
-  nombre: beneficiario.nombre_completo ?? beneficiario.nombre,
-  descripcion: beneficiario.cadena_productiva ?? 'Beneficiario asignado',
+  nombre: beneficiario.nombre ?? beneficiario.nombre_completo ?? '',
+  descripcion: 'Beneficiario asignado',
   activo: beneficiario.activo ?? true,
   created_by: '',
   created_at: beneficiario.created_at ?? syncTs,
@@ -77,7 +77,7 @@ const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): As
   id_tecnico: beneficiario.id_tecnico ?? beneficiario.tecnico_id ?? '',
   id_beneficiario: beneficiario.id_beneficiario ?? beneficiario.id,
   tipo_asignacion: 'beneficiario',
-  descripcion_actividad: beneficiario.cadena_productiva ?? 'Seguimiento de beneficiario',
+  descripcion_actividad: 'Seguimiento de beneficiario',
   prioridad: 'MEDIA',
   completado: false,
   beneficiario: {
@@ -85,6 +85,11 @@ const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): As
     id: beneficiario.id_beneficiario ?? beneficiario.id,
     nombre: beneficiario.nombre ?? beneficiario.nombre_completo ?? '',
     nombre_completo: beneficiario.nombre_completo ?? beneficiario.nombre ?? '',
+    direccion: beneficiario.direccion ?? null,
+    cp: beneficiario.cp ?? null,
+    coord_parcela: beneficiario.coord_parcela ?? null,
+    telefono_principal: beneficiario.telefono_principal ?? beneficiario.telefono_contacto ?? null,
+    telefono_secundario: beneficiario.telefono_secundario ?? null,
     activo: beneficiario.activo ?? true,
   },
 });

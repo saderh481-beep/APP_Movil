@@ -1202,8 +1202,9 @@ const server = http.createServer(async (req, res) => {
         if (isAdminOrCoordinador) {
           beneficiarios = await sql`
             SELECT 
-              id, nombre_completo, curp, municipio, localidad, 
-              folio_saderh, cadena_productiva, telefono_contacto,
+              id, nombre, curp, municipio, localidad, 
+              folio_saderh, direccion, cp, coord_parcela,
+              telefono_principal, telefono_secundario,
               tecnico_id, activo, created_at, updated_at
             FROM beneficiarios 
             WHERE activo = true
@@ -1212,8 +1213,9 @@ const server = http.createServer(async (req, res) => {
         } else {
           beneficiarios = await sql`
             SELECT 
-              id, nombre_completo, curp, municipio, localidad, 
-              folio_saderh, cadena_productiva, telefono_contacto,
+              id, nombre, curp, municipio, localidad,
+              folio_saderh, direccion, cp, coord_parcela,
+              telefono_principal, telefono_secundario,
               tecnico_id, activo, created_at, updated_at
             FROM beneficiarios 
             WHERE tecnico_id = ${tecnicoId} AND activo = true
@@ -1229,8 +1231,8 @@ const server = http.createServer(async (req, res) => {
           id_asignacion: b.id,
           id_tecnico: b.tecnico_id,
           id_beneficiario: b.id,
-          nombre: b.nombre_completo,
-          descripcion: b.cadena_productiva ?? 'Seguimiento de beneficiario',
+          nombre: b.nombre,
+          descripcion: 'Seguimiento de beneficiario',
           tipo_asignacion: 'beneficiario',
           descripcion_actividad: 'Visita de seguimiento',
           prioridad: 'MEDIA',
@@ -1242,14 +1244,17 @@ const server = http.createServer(async (req, res) => {
           beneficiario: {
             id: b.id,
             id_beneficiario: b.id,
-            nombre: b.nombre_completo,
-            nombre_completo: b.nombre_completo,
+            nombre: b.nombre,
+            nombre_completo: b.nombre,
             curp: b.curp,
             municipio: b.municipio,
             localidad: b.localidad,
             folio_saderh: b.folio_saderh,
-            cadena_productiva: b.cadena_productiva,
-            telefono_contacto: b.telefono_contacto,
+            direccion: b.direccion,
+            cp: b.cp,
+            coord_parcela: b.coord_parcela,
+            telefono_principal: b.telefono_principal,
+            telefono_secundario: b.telefono_secundario,
             activo: b.activo,
           },
         }));
@@ -1388,8 +1393,9 @@ const server = http.createServer(async (req, res) => {
         // Obtener beneficiarios asignados al técnico
         const beneficiarios = await sql`
           SELECT 
-            id, nombre_completo, curp, municipio, localidad,
-            folio_saderh, cadena_productiva, telefono_contacto,
+            id, nombre, curp, municipio, localidad,
+            folio_saderh, direccion, cp, coord_parcela,
+            telefono_principal, telefono_secundario,
             tecnico_id, activo, created_at, updated_at
           FROM beneficiarios 
           WHERE tecnico_id = ${tecnicoId} AND activo = true
@@ -1399,7 +1405,7 @@ const server = http.createServer(async (req, res) => {
         // Obtener actividades del técnico
         const actividades = await sql`
           SELECT 
-            id, descripcion, fecha_limite, prioridad, completado,
+            id, nombre, descripcion, fecha_limite, prioridad, completado,
             tecnico_id, beneficiario_id, activo, created_at, updated_at
           FROM actividades 
           WHERE tecnico_id = ${tecnicoId} AND activo = true
@@ -1412,25 +1418,32 @@ const server = http.createServer(async (req, res) => {
           sync_ts: new Date().toISOString(),
           beneficiarios: beneficiarios.map(b => ({
             id: b.id,
-            nombre_completo: b.nombre_completo,
+            nombre: b.nombre,
+            nombre_completo: b.nombre,
             curp: b.curp,
             municipio: b.municipio,
             localidad: b.localidad,
             folio_saderh: b.folio_saderh,
-            cadena_productiva: b.cadena_productiva,
-            telefono_contacto: b.telefono_contacto,
+            direccion: b.direccion,
+            cp: b.cp,
+            coord_parcela: b.coord_parcela,
+            telefono_principal: b.telefono_principal,
+            telefono_secundario: b.telefono_secundario,
             id_tecnico: b.tecnico_id,
+            tecnico_id: b.tecnico_id,
             activo: b.activo,
             created_at: b.created_at,
             updated_at: b.updated_at,
           })),
           actividades: actividades.map(a => ({
             id: a.id,
+            nombre: a.nombre,
             descripcion: a.descripcion,
             fecha_limite: a.fecha_limite,
             prioridad: a.prioridad,
             completado: a.completado,
             id_tecnico: a.tecnico_id,
+            tecnico_id: a.tecnico_id,
             beneficiario_id: a.beneficiario_id,
             activo: a.activo,
             created_at: a.created_at,
