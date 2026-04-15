@@ -1333,13 +1333,40 @@ const server = http.createServer(async (req, res) => {
           try {
             const bitacoraId = `bitacora-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             
+            // Extraer todos los campos del payload
+            const cadenaProductivaId = payload?.cadena_productiva_id || null;
+            const coordInicio = payload?.coord_inicio || null;
+            const coordFin = payload?.coord_fin || null;
+            const fechaFin = payload?.fecha_fin || null;
+            const recomendaciones = payload?.recomendaciones || '';
+            const comentariosBeneficiario = payload?.comentarios_beneficiario || '';
+            const observacionesCoordinador = payload?.observaciones_coordinador || '';
+            const datosExtendidosJson = payload?.datos_extendidos ? JSON.stringify(payload.datos_extendidos) : null;
+            const calificacion = payload?.calificacion ?? null;
+            const reporte = payload?.reporte || '';
+            
+            console.log('[SYNC] Creando bitácora con datos:', {
+              tipo, tecnicoId, BeneficiarioId, actividadId, cadenaProductivaId,
+              coordInicio, coordFin, fechaFin, recomendaciones,
+              tieneDatosExtendidos: !!datosExtendidosJson,
+              tieneCalificacion: calificacion !== null
+            });
+            
             await sql`
               INSERT INTO bitacoras (
-                id, tipo, estado, tecnico_id, beneficiario_id, actividad_id, fecha_inicio,
-                sync_id, actividades_desc, coordinacion_interinst, created_at, updated_at
+                id, tipo, estado, tecnico_id, beneficiario_id, actividad_id, 
+                cadena_productiva_id, fecha_inicio, coord_inicio,
+                coord_fin, fecha_fin, sync_id, actividades_desc, 
+                recomendaciones, comentarios_beneficiario, observaciones_coordinador,
+                datos_extendidos, calificacion, reporte,
+                coordinacion_interinst, created_at, updated_at
               ) VALUES (
-                ${bitacoraId}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId}, ${actividadId}, ${fechaInicio},
-                ${syncId}, ${actividadesDesc}, false, NOW(), NOW()
+                ${bitacoraId}, ${tipo}, 'borrador', ${tecnicoId}, ${beneficiarioId}, ${actividadId}, 
+                ${cadenaProductivaId}, ${fechaInicio}, ${coordInicio},
+                ${coordFin}, ${fechaFin}, ${syncId}, ${actividadesDesc}, 
+                ${recomendaciones}, ${comentariosBeneficiario}, ${observacionesCoordinador},
+                ${datosExtendidosJson}, ${calificacion}, ${reporte},
+                false, NOW(), NOW()
               )
             `;
 

@@ -42,7 +42,8 @@ CREATE INDEX IF NOT EXISTS idx_bitacoras_sync_id ON bitacoras(sync_id);
 ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS coordinacion_interinst BOOLEAN DEFAULT FALSE;
 ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS instancia_coordinada VARCHAR(255);
 ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS proposito_coordinacion TEXT;
-ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS calificacion VARCHAR(10);
+-- Cambiar tipo de calificacion de VARCHAR a INTEGER
+ALTER TABLE bitacoras ALTER COLUMN calificacion TYPE INTEGER USING COALESCE(NULLIF(calificacion, ''), '0')::INTEGER;
 ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS reporte TEXT;
 ALTER TABLE bitacoras ADD COLUMN IF NOT EXISTS datos_extendidos JSONB;
 

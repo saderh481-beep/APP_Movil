@@ -437,7 +437,16 @@ export const startAutoSync = (intervalMs: number = SYNC_INTERVAL): void => {
     
     if (isOnline) {
       console.log('[SYNC] Ejecutando sincronización automática...');
-      await syncAll();
+      try {
+        const result = await syncAll();
+        if (result.success) {
+          console.log('[SYNC] Sincronización exitosa:', result.syncedCount);
+        } else {
+          console.warn('[SYNC] Sincronización con errores:', result.error);
+        }
+      } catch (err) {
+        console.error('[SYNC] Error en syncAll:', err);
+      }
     } else {
       console.log('[SYNC] Sin conexión, omitiendo sincronización');
     }

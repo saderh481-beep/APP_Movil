@@ -348,10 +348,12 @@ export default function Dashboard() {
           if (Array.isArray(parsed.data)) {
             const cachedData = parsed.data.filter((a) => tecnicoMatches(a, tecnico?.id));
             setAsigs(cachedData);
-            const ageStr = isCacheValid ? `hace ${Math.round(cacheAge / 60000)}m` : 'cache expirado';
+            const ageStr = isCacheValid 
+              ? `datos de hace ${Math.round(cacheAge / 60000)} min` 
+              : 'datos locales vencidos';
             setErrorMsg(isNetworkErr 
-              ? `📡 Sin conexión: datos locales (${ageStr}).` 
-              : `⚠️ Error del servidor: datos locales (${ageStr}).`);
+              ? `📡 Sin conexión a internet. Mostrando ${ageStr}.` 
+              : `⚠️ Error del servidor. Mostrando ${ageStr}.`);
           } else {
             setAsigs([]);
             setErrorMsg('No se pudieron cargar las asignaciones.');

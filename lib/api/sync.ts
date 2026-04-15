@@ -74,14 +74,17 @@ const finalizePendingOperations = async (resultados: SyncResultItem[]) => {
       continue;
     }
 
-    try {
+try {
       if (pendingBit.foto_rostro_uri) {
+        console.log('[SYNC] Subiendo foto rostro:', pendingBit.foto_rostro_uri);
         await bitacorasApi.subirFotoRostro(remoteBitacoraId, pendingBit.foto_rostro_uri);
       }
       if (pendingBit.firma_uri) {
+        console.log('[SYNC] Subiendo firma:', pendingBit.firma_uri);
         await bitacorasApi.subirFirma(remoteBitacoraId, pendingBit.firma_uri);
       }
       if (pendingBit.fotos_campo_uris?.length) {
+        console.log('[SYNC] Subiendo fotos campo:', pendingBit.fotos_campo_uris.length);
         await bitacorasApi.subirFotosCampo(remoteBitacoraId, pendingBit.fotos_campo_uris);
       }
       if (pendingBit.pdf_uri) {

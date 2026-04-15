@@ -32,7 +32,14 @@ import Svg, { Path } from 'react-native-svg';
 type Paso = 3 | 4 | 5;
 type Punto = { x: number; y: number };
 type Trazo = Punto[];
-const OFFLINE_DIR = `${FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? ''}offline-bitacoras`;
+const OFFLINE_DIR = (() => {
+  const base = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+  if (!base) {
+    console.error('[DETALLE] FileSystem directories no disponibles');
+    return null;
+  }
+  return `${base}offline-bitacoras`;
+})();
 const ASIG_CACHE_KEY = '@saderh:asignaciones_cache';
 const getAsignacionesCacheKey = (tecnicoId?: string) =>
   `${ASIG_CACHE_KEY}:${tecnicoId ?? 'anon'}`;
@@ -499,10 +506,15 @@ export default function DetalleAsignacion() {
 
   const guardarPendienteOffline = async (payload: Omit<Bitacora, 'id_bitacora'>, firmaUri: string) => {
     if (!fotoRostro) throw new Error('Falta foto de rostro para modo offline.');
+    if (!OFFLINE_DIR) throw new Error('Directorio offline no disponível.');
 
+    console.log('[OFFLINE] Guardando bitácora offline:', { fotoRostro: !!fotoRostro, firmaUri: !!firmaUri, fotosCampo: fotosCampo.length });
+    
     const fotoRostroOffline = await persistForOffline(fotoRostro, 'rostro');
     const firmaOffline = await persistForOffline(firmaUri, 'firma');
     const fotosCampoOffline = await Promise.all(fotosCampo.map((u) => persistForOffline(u, 'campo')));
+
+    console.log('[OFFLINE] Archivos persistidos:', { rostro: fotoRostroOffline, firma: firmaOffline, fotos: fotosCampoOffline.length });
 
     await offlineQueue.pushPendingBitacora({
       local_id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
