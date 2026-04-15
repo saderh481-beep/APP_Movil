@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 import { KEYS } from '../lib/api';
-import { Usuario } from '../types/models';
+import { Usuario, EstadoCorte } from '../types/models';
 
 // Utilidad para validar JWT (manejando correctamente Unicode)
 const decodeBase64Url = (str: string): string => {
@@ -150,7 +150,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       const trimmed = str.trim();
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try {
-          const usuario = JSON.parse(str) as Usuario;
+          const parsed = JSON.parse(str);
+          const usuario = validateUsuario(parsed);
+          if (!usuario) {
+            console.warn('Usuario inválido, limpiando sesión');
+            await SecureStore.deleteItemAsync(KEYS.TOKEN).catch(() => {});
+            await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
+            set({ isLoading: false });
+            return;
+          }
           set({ token, tecnico: usuario, isAuthenticated: true, isLoading: false });
         } catch {
           try {

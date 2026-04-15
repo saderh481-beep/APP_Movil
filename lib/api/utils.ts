@@ -99,7 +99,7 @@ export const normalizeAsignacionFromActividad = (actividad: Actividad, raw?: unk
   return {
     ...actividad,
     id_asignacion: actividad.id,
-    id_tecnico: toStringOrUndefined(rec.id_tecnico ?? rec.tecnico_id),
+    id_tecnico: toStringOrUndefined(rec.id_tecnico ?? rec.tecnico_id) ?? '',
     id_usuario_creo: actividad.created_by,
     id_beneficiario: toStringOrUndefined(rec.id_beneficiario ?? rec.beneficiario_id),
     tipo_asignacion: 'actividad',
@@ -108,6 +108,26 @@ export const normalizeAsignacionFromActividad = (actividad: Actividad, raw?: unk
     completado: false,
     fecha_limite: toStringOrUndefined(rec.fecha_limite),
     fecha_completado: toStringOrUndefined(rec.fecha_completado),
+    beneficiario: {
+      id: toStringOrUndefined(rec.id_beneficiario ?? rec.beneficiario_id) ?? 'unknown',
+      nombre: '',
+      nombre_completo: '',
+      municipio: '',
+      localidad: null,
+      direccion: null,
+      cp: null,
+      telefono_principal: null,
+      telefono_secundario: null,
+      coord_parcela: null,
+      telefono_contacto: null,
+      curp: '',
+      folio_saderh: '',
+      cadena_productiva: '',
+      tecnico_id: null,
+      latitud_predio: null,
+      longitud_predio: null,
+      activo: true,
+    },
   };
 };
 
