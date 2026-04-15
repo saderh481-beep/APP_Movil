@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FileManager } from '@/lib/file-manager';
 import { startAutoExport, stopAutoExport } from '@/lib/export-service';
 import { startAutoSync, stopAutoSync, syncNow } from '@/lib/sync-service';
+import { ErrorBoundary } from './_error-boundary';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -121,15 +122,17 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth/splash" />
-        <Stack.Screen name="auth/conexion" />
-        <Stack.Screen name="auth/login" />
-        <Stack.Screen name="tabs" />
-        <Stack.Screen name="stack/detalle-asignacion" />
-      </Stack>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="auth/splash" />
+          <Stack.Screen name="auth/conexion" />
+          <Stack.Screen name="auth/login" />
+          <Stack.Screen name="tabs" />
+          <Stack.Screen name="stack/detalle-asignacion" />
+        </Stack>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

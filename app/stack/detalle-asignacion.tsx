@@ -571,7 +571,7 @@ export default function DetalleAsignacion() {
           ? (asig?.id_asignacion ?? asig?.id)
           : undefined
       );
-      const cadenaProductivaId = cleanUuid(asig?.beneficiario?.cadenas?.[0]?.id);
+      const cadenaProductivaId = cleanUuid(asig?.beneficiario?.cadenas?.[0]?.id ?? asig.beneficiario?.id ?? '');
 
       if (tipoAsignacion === 'beneficiario' && !beneficiarioId) {
         Alert.alert('Error de datos', 'No se encontró el ID del beneficiario. Por favor regresa y vuelve a intentarlo.');

@@ -74,21 +74,70 @@ export interface Localidad {
   zona_id?: string | null;
 }
 
-/** Tipo legado: usamos Actividad como Asignacion para compatibilidad */
-export type Asignacion = Actividad & {
-  id_asignacion?: string;
-  id_tecnico?: string | number;
+export interface Asignacion {
+  id: string;
+  nombre: string;
+  descripcion?: string | null;
+  activo?: boolean;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  id_asignacion: string;
+  id_tecnico: string | number;
   id_usuario_creo?: string;
   id_beneficiario?: string;
-  tipo_asignacion?: TipoAsignacion;
+  tipo_asignacion: TipoAsignacion;
   descripcion_actividad?: string | null;
   prioridad?: Prioridad;
   fecha_limite?: string;
   completado?: boolean;
   fecha_completado?: string | null;
   fecha_creacion?: string;
-  beneficiario?: Beneficiario;
-};
+  beneficiario: Beneficiario;
+}
+
+export function getSafeAsignacion(data: Partial<Asignacion>): Asignacion {
+  return {
+    id: data.id ?? `asig-${Date.now()}`,
+    nombre: data.nombre ?? 'Sin nombre',
+    descripcion: data.descripcion ?? null,
+    activo: data.activo ?? true,
+    created_by: data.created_by ?? '',
+    created_at: data.created_at ?? new Date().toISOString(),
+    updated_at: data.updated_at ?? new Date().toISOString(),
+    id_asignacion: data.id_asignacion ?? data.id ?? `asig-${Date.now()}`,
+    id_tecnico: data.id_tecnico ?? 0,
+    id_usuario_creo: data.id_usuario_creo,
+    id_beneficiario: data.id_beneficiario,
+    tipo_asignacion: data.tipo_asignacion ?? 'actividad',
+    descripcion_actividad: data.descripcion_actividad ?? null,
+    prioridad: data.prioridad ?? 'MEDIA',
+    fecha_limite: data.fecha_limite,
+    completado: data.completado ?? false,
+    fecha_completado: data.fecha_completado,
+    fecha_creacion: data.fecha_creacion,
+    beneficiario: data.beneficiario ?? {
+      id: data.id_beneficiario ?? 'unknown',
+      nombre: 'Sin beneficiario',
+      nombre_completo: 'Sin beneficiario',
+      curp: '',
+      municipio: '',
+      localidad: null,
+      direccion: null,
+      cp: null,
+      telefono_principal: null,
+      telefono_secundario: null,
+      coord_parcela: null,
+      telefono_contacto: null,
+      folio_saderh: '',
+      cadena_productiva: '',
+      tecnico_id: null,
+      latitud_predio: null,
+      longitud_predio: null,
+      activo: true,
+    },
+  };
+}
 
 export interface DatosExtendidos {
   tipo_cultivo?: string;

@@ -70,7 +70,23 @@ interface AuthState {
   clearAuth: () => Promise<void>;
   loadAuth: () => Promise<void>;
   setOffline: (v: boolean) => void;
+  getTecnicoId: () => string;
 }
+
+const validateUsuario = (data: unknown): Usuario | null => {
+  if (!data || typeof data !== 'object') return null;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.id !== 'string' && typeof obj.id !== 'number') return null;
+  if (typeof obj.nombre !== 'string') return null;
+  return {
+    id: String(obj.id),
+    nombre: String(obj.nombre),
+    rol: typeof obj.rol === 'string' ? obj.rol : 'tecnico',
+    email: typeof obj.email === 'string' ? obj.email : undefined,
+    fecha_limite: typeof obj.fecha_limite === 'string' ? obj.fecha_limite : undefined,
+    estado_corte: typeof obj.estado_corte === 'string' ? obj.estado_corte as EstadoCorte : undefined,
+  };
+};
 
 export const useAuthStore = create<AuthState>((set) => ({
   token: null, tecnico: null, isAuthenticated: false,
@@ -156,4 +172,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   setOffline: (v) => set({ isOffline: v }),
+
+  getTecnicoId: (): string => {
+    const state = useAuthStore.getState();
+    if (!state.tecnico?.id) {
+      console.warn('[AUTH STORE] getTecnicoId: tecnico.id es undefined');
+      return '';
+    }
+    return String(state.tecnico.id);
+  },
 }));

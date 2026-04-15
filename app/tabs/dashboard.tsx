@@ -40,12 +40,17 @@ const mergeAsignaciones = (cached: Asignacion[], fresh: Asignacion[]): Asignacio
   return Array.from(map.values());
 };
 
-const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string) => {
-  if (!tecnicoId) return false;
-  if (asignacion.tipo_asignacion === 'beneficiario') {
-    return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
+const tecnicoMatches = (asignacion: Asignacion, tecnicoId?: string): boolean => {
+  if (!tecnicoId || typeof tecnicoId !== 'string' || tecnicoId.trim() === '') {
+    console.warn('[DASHBOARD] tecnicoMatches: tecnicoId inválido, retornando false');
+    return false;
   }
-  return String(asignacion.id_tecnico ?? '').trim() === String(tecnicoId).trim();
+  const asignacionTecnicoId = asignacion.id_tecnico;
+  if (asignacionTecnicoId === undefined || asignacionTecnicoId === null) {
+    console.warn('[DASHBOARD] tecnicoMatches: id_tecnico es undefined/null en asignacion:', asignacion.id_asignacion);
+    return false;
+  }
+  return String(asignacionTecnicoId).trim() === tecnicoId.trim();
 };
 
 const sortAsignaciones = (items: Asignacion[]) =>
@@ -65,46 +70,86 @@ const REFRESH_BENEFICIARIOS_KEY = '@saderh:refresh_beneficiarios';
 const REFRESH_ACTIVIDADES_KEY = '@saderh:refresh_actividades';
 const REFRESH_BITACORAS_KEY = '@saderh:refresh_bitacoras';
 
-const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): Asignacion => ({
-  id: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
-  nombre: beneficiario.nombre ?? beneficiario.nombre_completo ?? '',
-  descripcion: 'Beneficiario asignado',
-  activo: beneficiario.activo ?? true,
-  created_by: '',
-  created_at: beneficiario.created_at ?? syncTs,
-  updated_at: beneficiario.updated_at ?? syncTs,
-  id_asignacion: `beneficiario-${beneficiario.id_beneficiario ?? beneficiario.id}`,
-  id_tecnico: beneficiario.id_tecnico ?? beneficiario.tecnico_id ?? '',
-  id_beneficiario: beneficiario.id_beneficiario ?? beneficiario.id,
-  tipo_asignacion: 'beneficiario',
-  descripcion_actividad: 'Seguimiento de beneficiario',
-  prioridad: 'MEDIA',
-  completado: false,
-  beneficiario: {
-    ...beneficiario,
-    id: beneficiario.id_beneficiario ?? beneficiario.id,
-    nombre: beneficiario.nombre ?? beneficiario.nombre_completo ?? '',
-    nombre_completo: beneficiario.nombre_completo ?? beneficiario.nombre ?? '',
-    direccion: beneficiario.direccion ?? null,
-    cp: beneficiario.cp ?? null,
-    coord_parcela: beneficiario.coord_parcela ?? null,
-    telefono_principal: beneficiario.telefono_principal ?? beneficiario.telefono_contacto ?? null,
-    telefono_secundario: beneficiario.telefono_secundario ?? null,
+const mapDeltaBeneficiarioToAsignacion = (beneficiario: any, syncTs: string): Asignacion => {
+  const beneficiarioId = beneficiario.id_beneficiario ?? beneficiario.id;
+  return {
+    id: `beneficiario-${beneficiarioId}`,
+    nombre: beneficiario.nombre ?? beneficiario.nombre_completo ?? 'Beneficiario',
+    descripcion: 'Beneficiario asignado',
     activo: beneficiario.activo ?? true,
-  },
-});
+    created_by: '',
+    created_at: beneficiario.created_at ?? syncTs,
+    updated_at: beneficiario.updated_at ?? syncTs,
+    id_asignacion: `beneficiario-${beneficiarioId}`,
+    id_tecnico: String(beneficiario.id_tecnico ?? beneficiario.tecnico_id ?? ''),
+    id_beneficiario: String(beneficiarioId),
+    tipo_asignacion: 'beneficiario',
+    descripcion_actividad: 'Seguimiento de beneficiario',
+    prioridad: 'MEDIA',
+    completado: false,
+    beneficiario: {
+      id: String(beneficiarioId),
+      nombre: beneficiario.nombre ?? beneficiario.nombre_completo ?? '',
+      nombre_completo: beneficiario.nombre_completo ?? beneficiario.nombre ?? '',
+      direccion: beneficiario.direccion ?? null,
+      cp: beneficiario.cp ?? null,
+      coord_parcela: beneficiario.coord_parcela ?? null,
+      telefono_principal: beneficiario.telefono_principal ?? beneficiario.telefono_contacto ?? null,
+      telefono_secundario: beneficiario.telefono_secundario ?? null,
+      activo: beneficiario.activo ?? true,
+      municipio: beneficiario.municipio ?? '',
+      localidad: beneficiario.localidad ?? null,
+      telefono_contacto: beneficiario.telefono_contacto ?? null,
+      curp: beneficiario.curp ?? '',
+      folio_saderh: beneficiario.folio_saderh ?? '',
+      cadena_productiva: beneficiario.cadena_productiva ?? '',
+      tecnico_id: beneficiario.id_tecnico ?? beneficiario.tecnico_id ?? null,
+      latitud_predio: beneficiario.latitud_predio ?? null,
+      longitud_predio: beneficiario.longitud_predio ?? null,
+    },
+  };
+};
 
-const mapDeltaActividadToAsignacion = (actividad: any): Asignacion => ({
-  ...actividad,
-  id_asignacion: actividad.id,
-  id_tecnico: actividad.id_tecnico ?? actividad.tecnico_id ?? '',
-  id_usuario_creo: actividad.created_by,
-  id_beneficiario: actividad.id_beneficiario ?? actividad.beneficiario_id ?? '',
-  tipo_asignacion: 'actividad',
-  descripcion_actividad: actividad.descripcion,
-  prioridad: 'MEDIA',
-  completado: false,
-});
+const mapDeltaActividadToAsignacion = (actividad: any): Asignacion => {
+  const actividadId = actividad.id;
+  return {
+    id: actividadId,
+    nombre: actividad.nombre ?? 'Actividad',
+    descripcion: actividad.descripcion ?? null,
+    activo: actividad.activo ?? true,
+    created_by: actividad.created_by ?? '',
+    created_at: actividad.created_at ?? new Date().toISOString(),
+    updated_at: actividad.updated_at ?? new Date().toISOString(),
+    id_asignacion: actividadId,
+    id_tecnico: String(actividad.id_tecnico ?? actividad.tecnico_id ?? ''),
+    id_usuario_creo: actividad.created_by,
+    id_beneficiario: String(actividad.id_beneficiario ?? actividad.beneficiario_id ?? ''),
+    tipo_asignacion: 'actividad',
+    descripcion_actividad: actividad.descripcion,
+    prioridad: 'MEDIA',
+    completado: false,
+    beneficiario: {
+      id: String(actividad.id_beneficiario ?? actividad.beneficiario_id ?? 'unknown'),
+      nombre: '',
+      nombre_completo: '',
+      municipio: '',
+      localidad: null,
+      direccion: null,
+      cp: null,
+      telefono_principal: null,
+      telefono_secundario: null,
+      coord_parcela: null,
+      telefono_contacto: null,
+      curp: '',
+      folio_saderh: '',
+      cadena_productiva: '',
+      tecnico_id: null,
+      latitud_predio: null,
+      longitud_predio: null,
+      activo: true,
+    },
+  };
+};
 
 export default function Dashboard() {
   const { tecnico, isOffline, setOffline, token } = useAuthStore();
