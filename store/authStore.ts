@@ -135,18 +135,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try {
           const usuario = JSON.parse(str) as Usuario;
-          set({ token, tecnico: usuario, isAuthenticated: true });
+          set({ token, tecnico: usuario, isAuthenticated: true, isLoading: false });
         } catch {
           try {
             await SecureStore.deleteItemAsync(KEYS.TOKEN);
           } catch {}
           await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
+          set({ isLoading: false });
         }
       } else {
         try {
           await SecureStore.deleteItemAsync(KEYS.TOKEN);
         } catch {}
         await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
+        set({ isLoading: false });
       }
     } else {
       set({ isLoading: false });

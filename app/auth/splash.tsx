@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const W = Dimensions.get('window').width;
 
 export default function Splash() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
   const [mostrarBtn, setMostrarBtn] = useState(false);
   const scale = useRef(new Animated.Value(0.4)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -18,6 +18,7 @@ export default function Splash() {
   const btnScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
+    console.log('[SPLASH] Componente montado, isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
     Animated.sequence([
       Animated.parallel([
         Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 55, friction: 8 }),

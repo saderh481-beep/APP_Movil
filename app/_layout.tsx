@@ -17,7 +17,16 @@ export default function RootLayout() {
   const { isLoading, loadAuth, isAuthenticated, setOffline } = useAuthStore();
 
   useEffect(() => {
-    loadAuth().then(() => SplashScreen.hideAsync());
+    console.log('[LAYOUT] Inicializando auth...');
+    loadAuth()
+      .then(() => {
+        console.log('[LAYOUT] Auth cargado, ocultando splash');
+        return SplashScreen.hideAsync();
+      })
+      .catch(e => {
+        console.error('[LAYOUT] Error en loadAuth:', e);
+        SplashScreen.hideAsync();
+      });
   }, []);
 
   // Inicializar carpetas de la app al arrancar
@@ -104,7 +113,11 @@ export default function RootLayout() {
   }, [isAuthenticated]);
 
   if (isLoading) {
-    return null;
+    return (
+      <View style={{ flex: 1, backgroundColor: '#7D1038' }}>
+        {/* Splash nativo de Expo */}
+      </View>
+    );
   }
 
   return (
