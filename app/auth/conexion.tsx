@@ -1,35 +1,27 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
 import { API_CONFIG } from '@/lib/api';
-import { saveConnectionInfo } from '@/lib/api/config';
 import { syncApi } from '@/lib/api';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Conexion() {
-  const [url, setUrl] = useState<string>(API_CONFIG.APP_API_URL);
   const [loading, setLoading] = useState(false);
 
   const verificar = async () => {
-    const cleanUrl = url.trim();
-    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-      Alert.alert('URL inválida', 'Debe comenzar con http:// o https://');
-      return;
-    }
     setLoading(true);
     try {
-      const validation = await syncApi.validateServer(cleanUrl);
+      const validation = await syncApi.validateServer(API_CONFIG.APP_API_URL);
       if (validation.ok) {
-        await saveConnectionInfo({ appApiUrl: cleanUrl });
         router.replace('/auth/login');
       } else {
         Alert.alert(
-          'Servidor no compatible',
+          'API no disponible',
           validation.reason
-            ? `${validation.reason}. Verifica que sea la API móvil correcta y que tenga habilitado /auth/tecnico.`
-            : 'No se pudo validar el servidor. Verifica la URL e intenta de nuevo.'
+            ? `${validation.reason}. Verifica el despliegue en Railway e intenta nuevamente.`
+            : 'No se pudo validar la API configurada. Revisa el despliegue en Railway e intenta de nuevo.'
         );
       }
     } catch { Alert.alert('Error', 'No se pudo verificar la conexión'); }
@@ -46,12 +38,14 @@ export default function Conexion() {
             <Text style={s.sub}>Sistema de Gestión de Campo</Text>
           </View>
           <View style={s.card}>
-            <Text style={s.cardTitle}>Conexión al Servidor</Text>
-            <Text style={s.cardDesc}>Ingresa la URL del servidor API de SADERH. Se validará `health` y también el endpoint de acceso antes de guardar.</Text>
-            <Text style={s.lbl}>URL del Servidor API</Text>
-            <TextInput style={s.inp} value={url} onChangeText={setUrl} placeholder="https://mi-servidor.railway.app" placeholderTextColor={Colors.gray400} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
+            <Text style={s.cardTitle}>Conexión Productiva</Text>
+            <Text style={s.cardDesc}>Esta versión móvil usa únicamente la API productiva autorizada para capturar, guardar y sincronizar bitácoras.</Text>
+            <Text style={s.lbl}>API configurada</Text>
+            <View style={s.apiBox}>
+              <Text style={s.apiValue}>{API_CONFIG.APP_API_URL}</Text>
+            </View>
             <TouchableOpacity style={[s.btnP, loading && s.dis]} onPress={verificar} disabled={loading}>
-              {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={s.btnPT}>Conectar al Servidor</Text>}
+              {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={s.btnPT}>Validar API y continuar</Text>}
             </TouchableOpacity>
           </View>
           <Text style={s.footer}>Secretaría de Agricultura de Hidalgo</Text>
@@ -72,19 +66,18 @@ const s = StyleSheet.create({
   cardTitle: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginBottom: 8 },
   cardDesc: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20, marginBottom: 24 },
   lbl: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, marginBottom: 8 },
-  inp: {
+  apiBox: {
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 14,
     minHeight: rh(48),
-    fontSize: 14,
-    color: Colors.textPrimary,
     backgroundColor: Colors.gray50,
     marginBottom: 18,
     width: '100%',
   },
+  apiValue: { fontSize: 14, color: Colors.textPrimary, fontWeight: '600' },
   btnP: { backgroundColor: Colors.guinda, borderRadius: 14, padding: 17, alignItems: 'center', marginBottom: 16 },
   dis: { opacity: 0.55 },
   btnPT: { color: Colors.white, fontSize: 16, fontWeight: '700' },

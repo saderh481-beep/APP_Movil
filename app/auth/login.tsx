@@ -1,11 +1,10 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, spacing } from '@/lib/responsive';
 import { Validators } from '@/lib/validators';
-import { authApi } from '@/lib/api';
+import { authApi, getToken } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -105,8 +104,7 @@ export default function Login() {
       await setAuth(res.token, res.tecnico);
       console.log('[LOGIN] Auth guardado, token:', res.token.substring(0, 20) + '...');
       
-      // Verificar que el token se guardó correctamente
-      const storedToken = await AsyncStorage.getItem('@saderh:token');
+      const storedToken = await getToken();
       if (!storedToken || storedToken !== res.token) {
         console.error('[LOGIN] ❌ Token no se guardó correctamente');
         throw new Error('Error guardando sesión. Intenta de nuevo.');
@@ -306,7 +304,7 @@ export default function Login() {
 
           <Animated.View style={[s.footer, { opacity: fadeAnim }]}>
             <Text style={s.footerText}>Secretaría de Agricultura de Hidalgo</Text>
-            <Text style={s.footerVersion}>Versión {Constants?.expoConfig?.version || '1.0.0'}</Text>
+            <Text style={s.footerVersion}>Versión {Constants?.expoConfig?.version || '1.1.1'}</Text>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KEYS } from './config';
-import type { CrearBeneficiarioPayload } from '../../types/models';
+import type { BitacoraCerrarPayload, CrearBeneficiarioPayload } from '../../types/models';
 
 const MAX_QUEUE_ITEMS = 100;
 const MAX_QUEUE_BYTES = 10 * 1024 * 1024;
@@ -10,10 +10,12 @@ export type PendingBitacoraUpload = {
   local_id: string;
   created_at: string;
   payload: Record<string, unknown>;
+  remote_bitacora_id?: string | null;
   foto_rostro_uri?: string | null;
   firma_uri?: string | null;
   fotos_campo_uris?: string[];
   pdf_uri?: string | null;
+  close_payload?: BitacoraCerrarPayload;
 };
 
 export type PendingBeneficiarioUpload = {

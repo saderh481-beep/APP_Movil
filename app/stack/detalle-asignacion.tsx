@@ -1,10 +1,10 @@
 import { Colors } from '@/constants/Colors';
 import { BITACORAS_CERRADAS_CACHE_KEY } from '@/constants/CacheKeys';
 import { fontSize, radius, rh, rw } from '@/lib/responsive';
-import { asignacionesApi, bitacorasApi, offlineQueue, syncApi } from '@/lib/api';
+import { asignacionesApi, bitacorasApi, isRetryableError, offlineQueue, syncApi } from '@/lib/api';
 import { cleanUuid } from '@/lib/uuid-utils';
 import { useAuthStore } from '@/store/authStore';
-import { Asignacion, Beneficiario, Bitacora, DatosExtendidos } from '@/types/models';
+import { Asignacion, Beneficiario, Bitacora, BitacoraCerrarPayload, DatosExtendidos } from '@/types/models';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
@@ -504,15 +504,43 @@ export default function DetalleAsignacion() {
     return uri;
   };
 
-  const guardarPendienteOffline = async (payload: Omit<Bitacora, 'id_bitacora'>, firmaUri: string) => {
-    if (!fotoRostro) throw new Error('Falta foto de rostro para modo offline.');
-    if (!OFFLINE_DIR) throw new Error('Directorio offline no disponível.');
+  const guardarPendienteOffline = async (
+    payload: Omit<Bitacora, 'id_bitacora'>,
+    options: {
+      firmaUri?: string | null;
+      fotoRostroUri?: string | null;
+      fotosCampoUris?: string[];
+      remoteBitacoraId?: string | null;
+      closePayload?: BitacoraCerrarPayload;
+    },
+  ) => {
+    if (!OFFLINE_DIR) throw new Error('Directorio offline no disponible.');
 
-    console.log('[OFFLINE] Guardando bitácora offline:', { fotoRostro: !!fotoRostro, firmaUri: !!firmaUri, fotosCampo: fotosCampo.length });
-    
-    const fotoRostroOffline = await persistForOffline(fotoRostro, 'rostro');
-    const firmaOffline = await persistForOffline(firmaUri, 'firma');
-    const fotosCampoOffline = await Promise.all(fotosCampo.map((u) => persistForOffline(u, 'campo')));
+    const fotoRostroFuente = options.fotoRostroUri ?? fotoRostro;
+    const firmaFuente = options.firmaUri ?? null;
+    const fotosCampoFuente = options.fotosCampoUris ?? fotosCampo;
+
+    if (!fotoRostroFuente && !firmaFuente && !fotosCampoFuente.length && !options.closePayload) {
+      throw new Error('No hay datos pendientes para guardar offline.');
+    }
+
+    console.log('[OFFLINE] Guardando bitácora offline:', {
+      fotoRostro: !!fotoRostroFuente,
+      firmaUri: !!firmaFuente,
+      fotosCampo: fotosCampoFuente.length,
+      remoteBitacoraId: options.remoteBitacoraId,
+      closePayload: !!options.closePayload,
+    });
+
+    const fotoRostroOffline = fotoRostroFuente
+      ? await persistForOffline(fotoRostroFuente, 'rostro')
+      : null;
+    const firmaOffline = firmaFuente
+      ? await persistForOffline(firmaFuente, 'firma')
+      : null;
+    const fotosCampoOffline = fotosCampoFuente.length
+      ? await Promise.all(fotosCampoFuente.map((uri) => persistForOffline(uri, 'campo')))
+      : [];
 
     console.log('[OFFLINE] Archivos persistidos:', { rostro: fotoRostroOffline, firma: firmaOffline, fotos: fotosCampoOffline.length });
 
@@ -520,9 +548,11 @@ export default function DetalleAsignacion() {
       local_id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       created_at: new Date().toISOString(),
       payload,
+      remote_bitacora_id: options.remoteBitacoraId ?? null,
       foto_rostro_uri: fotoRostroOffline,
       firma_uri: firmaOffline,
       fotos_campo_uris: fotosCampoOffline,
+      close_payload: options.closePayload,
     });
   };
 
@@ -610,6 +640,13 @@ export default function DetalleAsignacion() {
         recomendaciones,
         comentarios_beneficiario: comentariosBeneficiario,
       };
+      const closePayload: BitacoraCerrarPayload = {
+        fecha_fin: now,
+        coord_fin: `${currentGps.lat},${currentGps.lon}`,
+        calificacion: datos.calidad_servicio,
+        reporte: datos.observaciones,
+        datos_extendidos: datos as unknown as Record<string, unknown>,
+      };
 
       firmaUri = await crearArchivoFirma();
 
@@ -642,6 +679,11 @@ export default function DetalleAsignacion() {
         console.log('[BITACORA] idBitacora extraído:', idBitacora);
         
         if (!idBitacora) throw new Error('La API no devolvió id de bitácora. Response: ' + JSON.stringify(response));
+        
+        let deferredFotoRostro: string | null = null;
+        let deferredFirma: string | null = null;
+        let deferredFotosCampo: string[] = [];
+        let deferredClosePayload: BitacoraCerrarPayload | undefined;
 
         await bitacorasApi.editar(idBitacora, {
           coord_inicio: payload.coord_inicio,
@@ -665,6 +707,9 @@ export default function DetalleAsignacion() {
         } catch (fotoError) {
           const fotoErrMsg = fotoError instanceof Error ? fotoError.message : String(fotoError);
           console.warn('[BITACORA] Error subiendo foto rostro:', fotoErrMsg);
+          if (fotoRostro && (syncApi.isNetworkError(fotoError) || isRetryableError(fotoError))) {
+            deferredFotoRostro = fotoRostro;
+          }
         }
         
         try {
@@ -676,6 +721,9 @@ export default function DetalleAsignacion() {
         } catch (firmaError) {
           const firmaErrMsg = firmaError instanceof Error ? firmaError.message : String(firmaError);
           console.warn('[BITACORA] Error subiendo firma:', firmaErrMsg);
+          if (firmaUri && (syncApi.isNetworkError(firmaError) || isRetryableError(firmaError))) {
+            deferredFirma = firmaUri;
+          }
         }
         
         try {
@@ -687,25 +735,40 @@ export default function DetalleAsignacion() {
         } catch (fotosError) {
           const fotosErrMsg = fotosError instanceof Error ? fotosError.message : String(fotosError);
           console.warn('[BITACORA] Error subiendo fotos campo:', fotosErrMsg);
+          if (fotosCampo.length && (syncApi.isNetworkError(fotosError) || isRetryableError(fotosError))) {
+            deferredFotosCampo = [...fotosCampo];
+          }
         }
         
         // Cerrar bitacora - nunca falla el flujo
         try {
           console.log('[BITACORA] Cerrando bitácora...');
-          const cierreResult = await bitacorasApi.cerrar(idBitacora, { 
-            fecha_fin: now, 
-            coord_fin: `${currentGps.lat},${currentGps.lon}`,
-            calificacion: datos.calidad_servicio,
-            reporte: datos.observaciones,
-            datos_extendidos: datos as unknown as Record<string, unknown>,
-          });
+          const cierreResult = await bitacorasApi.cerrar(idBitacora, closePayload);
           console.log('[BITACORA] Cierre result:', cierreResult);
           if (cierreResult.estado !== 'cerrada') {
             console.warn('[BITACORA] Cierre con estado inesperado:', cierreResult.estado);
           }
         } catch (cerrarError: any) {
           console.error('[BITACORA] Error en cierre:', cerrarError.message, 'status:', cerrarError?.response?.status);
-          // No relanzar - la bitácora ya está creada con datos
+          if (syncApi.isNetworkError(cerrarError) || isRetryableError(cerrarError)) {
+            deferredClosePayload = closePayload;
+          }
+        }
+
+        const hasDeferredSync =
+          Boolean(deferredFotoRostro) ||
+          Boolean(deferredFirma) ||
+          deferredFotosCampo.length > 0 ||
+          Boolean(deferredClosePayload);
+
+        if (hasDeferredSync) {
+          await guardarPendienteOffline(payload, {
+            remoteBitacoraId: idBitacora,
+            fotoRostroUri: deferredFotoRostro,
+            firmaUri: deferredFirma,
+            fotosCampoUris: deferredFotosCampo,
+            closePayload: deferredClosePayload,
+          });
         }
         
         setOffline(false);
@@ -714,14 +777,21 @@ export default function DetalleAsignacion() {
         await AsyncStorage.setItem('@saderh:refresh_bitacoras', Date.now().toString());
 
         Alert.alert(
-          '✅ ¡VISITA COMPLETADA!',
-          '🎉 La bitácora se guardó correctamente.\n\n📸 Foto de rostro: ✓\n✍️ Firma: ✓\n\n¡Gracias por tu trabajo!',
+          hasDeferredSync ? '✅ Visita guardada con sincronización pendiente' : '✅ ¡VISITA COMPLETADA!',
+          hasDeferredSync
+            ? 'La bitácora quedó guardada en la API. Los archivos o el cierre pendientes se reenviarán automáticamente cuando la conexión sea estable.'
+            : '🎉 La bitácora se guardó correctamente.\n\n📸 Foto de rostro: ✓\n✍️ Firma: ✓\n\n¡Gracias por tu trabajo!',
           [{ text: '🎯 Finalizar', onPress: () => router.back(), style: 'default' }],
         );
       } catch (e) {
         if (syncApi.isNetworkError(e)) {
           setOffline(true);
-          await guardarPendienteOffline(payload as any, firmaUri);
+          await guardarPendienteOffline(payload, {
+            fotoRostroUri: fotoRostro,
+            firmaUri,
+            fotosCampoUris: fotosCampo,
+            closePayload,
+          });
           await AsyncStorage.removeItem(getBitacoraDraftKey(tecnico.id, String(asig.id_asignacion ?? id)));
           Alert.alert(
             '📱 MODO OFFLINE',

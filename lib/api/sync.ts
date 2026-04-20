@@ -9,8 +9,9 @@ import {
   normalizeActividad,
   normalizeBeneficiario,
 } from './utils';
-import type { SyncRequestBody, SyncDeltaResponse, SyncResultItem } from '../../types/models';
+import type { BitacoraCerrarPayload, SyncRequestBody, SyncDeltaResponse, SyncResultItem } from '../../types/models';
 import { offlineQueue } from './offline-queue';
+import type { PendingBitacoraUpload, PendingBeneficiarioUpload } from './offline-queue';
 import { bitacorasApi } from './bitacoras';
 
 const extractRemoteBitacoraId = (item: SyncResultItem | Record<string, unknown>): string | null => {
@@ -29,11 +30,71 @@ const extractRemoteBitacoraId = (item: SyncResultItem | Record<string, unknown>)
   return null;
 };
 
-const finalizePendingOperations = async (resultados: SyncResultItem[]) => {
-  const [pendingBitacoras, pendingBeneficiarios] = await Promise.all([
-    offlineQueue.getAllPendingBitacoras(),
-    offlineQueue.getPendingBeneficiarios(),
-  ]);
+const buildClosePayload = (pendingBit: PendingBitacoraUpload): BitacoraCerrarPayload | null => {
+  if (pendingBit.close_payload?.fecha_fin) {
+    return pendingBit.close_payload;
+  }
+
+  const payload = isRecord(pendingBit.payload) ? pendingBit.payload : null;
+  const fechaFin = typeof payload?.fecha_fin === 'string' ? payload.fecha_fin : null;
+  if (!fechaFin) {
+    return null;
+  }
+
+  const closePayload: BitacoraCerrarPayload = { fecha_fin: fechaFin };
+  if (typeof payload.coord_fin === 'string' && payload.coord_fin.trim()) {
+    closePayload.coord_fin = payload.coord_fin;
+  }
+  if (typeof payload.calificacion === 'number') {
+    closePayload.calificacion = payload.calificacion;
+  }
+  if (typeof payload.reporte === 'string' && payload.reporte.trim()) {
+    closePayload.reporte = payload.reporte;
+  }
+  if (isRecord(payload.datos_extendidos)) {
+    closePayload.datos_extendidos = payload.datos_extendidos;
+  }
+  return closePayload;
+};
+
+const hasDeferredRemoteWork = (pendingBit: PendingBitacoraUpload): boolean =>
+  Boolean(
+    pendingBit.foto_rostro_uri ||
+    pendingBit.firma_uri ||
+    pendingBit.pdf_uri ||
+    pendingBit.fotos_campo_uris?.length ||
+    buildClosePayload(pendingBit)
+  );
+
+const uploadPendingArtifacts = async (pendingBit: PendingBitacoraUpload, remoteBitacoraId: string) => {
+  if (pendingBit.foto_rostro_uri) {
+    console.log('[SYNC] Subiendo foto rostro:', pendingBit.foto_rostro_uri);
+    await bitacorasApi.subirFotoRostro(remoteBitacoraId, pendingBit.foto_rostro_uri);
+  }
+  if (pendingBit.firma_uri) {
+    console.log('[SYNC] Subiendo firma:', pendingBit.firma_uri);
+    await bitacorasApi.subirFirma(remoteBitacoraId, pendingBit.firma_uri);
+  }
+  if (pendingBit.fotos_campo_uris?.length) {
+    console.log('[SYNC] Subiendo fotos campo:', pendingBit.fotos_campo_uris.length);
+    await bitacorasApi.subirFotosCampo(remoteBitacoraId, pendingBit.fotos_campo_uris);
+  }
+  if (pendingBit.pdf_uri) {
+    throw new Error('Existe un PDF pendiente, pero no hay endpoint cliente configurado para subirlo.');
+  }
+
+  const closePayload = buildClosePayload(pendingBit);
+  if (closePayload) {
+    console.log('[SYNC] Cerrando bitácora remota:', remoteBitacoraId);
+    await bitacorasApi.cerrar(remoteBitacoraId, closePayload);
+  }
+};
+
+const finalizePendingOperations = async (
+  resultados: SyncResultItem[],
+  pendingBitacoras: PendingBitacoraUpload[],
+  pendingBeneficiarios: PendingBeneficiarioUpload[],
+) => {
 
   const bitacorasById = new Map(pendingBitacoras.map(item => [item.local_id, item]));
   const beneficiariosById = new Map(pendingBeneficiarios.map(item => [item.local_id, item]));
@@ -56,14 +117,7 @@ const finalizePendingOperations = async (resultados: SyncResultItem[]) => {
     const pendingBit = bitacorasById.get(resultado.sync_id);
     if (!pendingBit) continue;
 
-    const hasAssets = Boolean(
-      pendingBit.foto_rostro_uri ||
-      pendingBit.firma_uri ||
-      pendingBit.pdf_uri ||
-      pendingBit.fotos_campo_uris?.length
-    );
-
-    if (!hasAssets) {
+    if (!hasDeferredRemoteWork(pendingBit)) {
       removableBitacoras.push(resultado.sync_id);
       continue;
     }
@@ -74,24 +128,8 @@ const finalizePendingOperations = async (resultados: SyncResultItem[]) => {
       continue;
     }
 
-try {
-      if (pendingBit.foto_rostro_uri) {
-        console.log('[SYNC] Subiendo foto rostro:', pendingBit.foto_rostro_uri);
-        await bitacorasApi.subirFotoRostro(remoteBitacoraId, pendingBit.foto_rostro_uri);
-      }
-      if (pendingBit.firma_uri) {
-        console.log('[SYNC] Subiendo firma:', pendingBit.firma_uri);
-        await bitacorasApi.subirFirma(remoteBitacoraId, pendingBit.firma_uri);
-      }
-      if (pendingBit.fotos_campo_uris?.length) {
-        console.log('[SYNC] Subiendo fotos campo:', pendingBit.fotos_campo_uris.length);
-        await bitacorasApi.subirFotosCampo(remoteBitacoraId, pendingBit.fotos_campo_uris);
-      }
-      if (pendingBit.pdf_uri) {
-        errores.push(`Bitácora ${resultado.sync_id} tiene PDF pendiente pero no existe endpoint cliente configurado para subirlo.`);
-        continue;
-      }
-
+    try {
+      await uploadPendingArtifacts(pendingBit, remoteBitacoraId);
       removableBitacoras.push(resultado.sync_id);
     } catch (error) {
       errores.push(
@@ -170,7 +208,16 @@ export const syncApi = {
     const token = await getToken();
     if (!token) throw new Error('No token');
     const body: SyncRequestBody = { operaciones };
-    const json = await http<unknown>('POST', '/sync', body, token);
+    let json: unknown;
+    try {
+      json = await http<unknown>('POST', '/sync', body, token);
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (!message.includes('recurso no encontrado')) {
+        throw error;
+      }
+      json = await http<unknown>('POST', '/sync/sync', body, token);
+    }
     const data = unwrapData(json);
     if (isRecord(data) && typeof data.procesadas === 'number' && Array.isArray(data.resultados)) {
       return data as any;
@@ -202,8 +249,10 @@ export const syncApi = {
       offlineQueue.getAllPendingBitacoras(),
       offlineQueue.getPendingBeneficiarios(),
     ]);
+    const bitacorasPorCrear = bitacoras.filter(item => !item.remote_bitacora_id);
+    const bitacorasConRemoto = bitacoras.filter(item => item.remote_bitacora_id);
     const operaciones = [
-      ...bitacoras.map(item => ({
+      ...bitacorasPorCrear.map(item => ({
         operacion: 'crear_bitacora',
         timestamp: item.created_at,
         payload: { ...item.payload, sync_id: item.local_id },
@@ -215,11 +264,35 @@ export const syncApi = {
       })),
     ];
 
-    if (!operaciones.length) {
-      return { sincronizadas: 0, errores: [] };
+    const errores: string[] = [];
+    let sincronizadas = 0;
+
+    if (operaciones.length) {
+      const result = await syncApi.sincronizar(operaciones as SyncRequestBody['operaciones']);
+      const finalized = await finalizePendingOperations(result.resultados, bitacorasPorCrear, beneficiarios);
+      sincronizadas += finalized.sincronizadas;
+      errores.push(...finalized.errores);
     }
 
-    const result = await syncApi.sincronizar(operaciones as SyncRequestBody['operaciones']);
-    return finalizePendingOperations(result.resultados);
+    if (bitacorasConRemoto.length) {
+      const removableRemoteIds: string[] = [];
+      for (const pendingBit of bitacorasConRemoto) {
+        try {
+          await uploadPendingArtifacts(pendingBit, String(pendingBit.remote_bitacora_id));
+          removableRemoteIds.push(pendingBit.local_id);
+          sincronizadas += 1;
+        } catch (error) {
+          errores.push(
+            `Bitácora ${pendingBit.local_id}: pendiente remoto no sincronizado (${error instanceof Error ? error.message : 'error desconocido'})`
+          );
+        }
+      }
+
+      if (removableRemoteIds.length) {
+        await offlineQueue.removePendingBitacorasByIds(removableRemoteIds);
+      }
+    }
+
+    return { sincronizadas, errores };
   },
 };

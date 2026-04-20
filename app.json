@@ -2,7 +2,7 @@
   "expo": {
     "name": "SADERH",
     "slug": "saderh-app",
-    "version": "1.0.0",
+    "version": "1.1.1",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "mx.gob.hidalgo.saderh",
+      "minSdkVersion": 31,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#8B0000"
@@ -23,12 +24,9 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
+        "CAMERA"
+      ],
+      "blockedPermissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ]

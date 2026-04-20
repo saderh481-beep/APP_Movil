@@ -64,7 +64,7 @@ const saveOfflineAuthSession = async (codigo: string, token: string, tecnico: Us
   await AsyncStorage.setItem(KEYS.OFFLINE_AUTH, JSON.stringify(payload));
 };
 
-const getOfflineAuthSession = async (): Promise<OfflineAuthSession | null> => {
+export const getOfflineAuthSession = async (): Promise<OfflineAuthSession | null> => {
   try {
     const raw = await AsyncStorage.getItem(KEYS.OFFLINE_AUTH);
     if (!raw) return null;
@@ -156,7 +156,7 @@ export const authApi = {
     try {
       await SecureStore.deleteItemAsync(KEYS.TOKEN);
     } catch {}
-    await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
+    await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO, KEYS.OFFLINE_AUTH]);
   },
 
   async forgotPassword(_email: string): Promise<ApiResponse> {

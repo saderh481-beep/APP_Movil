@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 import { KEYS } from '../lib/api';
+import { getOfflineAuthSession } from '../lib/api/auth';
 import { Usuario, EstadoCorte } from '../types/models';
 
 // Utilidad para validar JWT (manejando correctamente Unicode)
@@ -98,6 +99,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await SecureStore.setItemAsync(KEYS.TOKEN, token, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED,
       });
+      await AsyncStorage.setItem(KEYS.TOKEN, token);
       await AsyncStorage.setItem(KEYS.USUARIO, JSON.stringify(usuario));
       
       const storedToken = await SecureStore.getItemAsync(KEYS.TOKEN);
@@ -108,20 +110,36 @@ export const useAuthStore = create<AuthState>((set) => ({
       await AsyncStorage.setItem(KEYS.USUARIO, JSON.stringify(usuario));
     }
     
-    set({ token, tecnico: usuario, isAuthenticated: true });
+    set({ token, tecnico: usuario, isAuthenticated: true, isOffline: false });
   },
 
   clearAuth: async () => {
     try {
       await SecureStore.deleteItemAsync(KEYS.TOKEN);
     } catch {}
-    await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-    set({ token: null, tecnico: null, isAuthenticated: false });
+    await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO, KEYS.OFFLINE_AUTH]);
+    set({ token: null, tecnico: null, isAuthenticated: false, isOffline: false });
   },
 
   loadAuth: async () => {
     let token: string | null = null;
     let str: string | null = null;
+    const restoreOfflineSession = async () => {
+      const offlineSession = await getOfflineAuthSession();
+      if (!offlineSession) {
+        set({ isLoading: false });
+        return;
+      }
+
+      await AsyncStorage.setItem(KEYS.USUARIO, JSON.stringify(offlineSession.tecnico));
+      set({
+        token: offlineSession.token,
+        tecnico: offlineSession.tecnico,
+        isAuthenticated: true,
+        isLoading: false,
+        isOffline: true,
+      });
+    };
     
     try {
       token = await SecureStore.getItemAsync(KEYS.TOKEN);
@@ -143,8 +161,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         try {
           await SecureStore.deleteItemAsync(KEYS.TOKEN);
         } catch {}
-        await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-        set({ isLoading: false });
+        await AsyncStorage.removeItem(KEYS.TOKEN);
+        await restoreOfflineSession();
         return;
       }
       const trimmed = str.trim();
@@ -156,26 +174,26 @@ export const useAuthStore = create<AuthState>((set) => ({
             console.warn('Usuario inválido, limpiando sesión');
             await SecureStore.deleteItemAsync(KEYS.TOKEN).catch(() => {});
             await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-            set({ isLoading: false });
+            await restoreOfflineSession();
             return;
           }
-          set({ token, tecnico: usuario, isAuthenticated: true, isLoading: false });
+          set({ token, tecnico: usuario, isAuthenticated: true, isLoading: false, isOffline: false });
         } catch {
           try {
             await SecureStore.deleteItemAsync(KEYS.TOKEN);
           } catch {}
           await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-          set({ isLoading: false });
+          await restoreOfflineSession();
         }
       } else {
         try {
           await SecureStore.deleteItemAsync(KEYS.TOKEN);
         } catch {}
         await AsyncStorage.multiRemove([KEYS.TOKEN, KEYS.USUARIO]);
-        set({ isLoading: false });
+        await restoreOfflineSession();
       }
     } else {
-      set({ isLoading: false });
+      await restoreOfflineSession();
     }
   },
 

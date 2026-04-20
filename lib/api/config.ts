@@ -1,18 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+const PRODUCTION_API_URL = 'https://campo-api-app-campo-saas.up.railway.app';
 const envAppApiUrl = process.env.EXPO_PUBLIC_APP_API_URL?.trim();
-const envWebApiUrl = process.env.EXPO_PUBLIC_WEB_API_URL?.trim();
+
+const resolveApiUrl = () => {
+  if (envAppApiUrl && /^https?:\/\//i.test(envAppApiUrl)) {
+    return envAppApiUrl.replace(/\/+$/, '');
+  }
+  return PRODUCTION_API_URL;
+};
 
 export const API_CONFIG = {
-  APP_API_URL: envAppApiUrl && /^https?:\/\//i.test(envAppApiUrl)
-    ? envAppApiUrl
-    : 'https://campo-api-app-production.up.railway.app',
-  WEB_API_URL: envWebApiUrl && /^https?:\/\//i.test(envWebApiUrl)
-    ? envWebApiUrl
-    : envAppApiUrl && /^https?:\/\//i.test(envAppApiUrl)
-      ? envAppApiUrl
-      : 'https://campo-api-app-production.up.railway.app',
-  LOCAL_API_URL: 'http://localhost:3002', // Dev local
+  APP_API_URL: resolveApiUrl(),
   TIMEOUT_MS: 20_000,
 } as const;
 
@@ -27,25 +24,17 @@ export const KEYS = {
 
 export const getBaseUrl = async (baseUrlOverride?: string): Promise<string> => {
   if (baseUrlOverride) {
-    return baseUrlOverride;
-  }
-  const raw = await AsyncStorage.getItem(KEYS.CONEXION);
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed.appApiUrl ?? API_CONFIG.APP_API_URL;
-    } catch {
-      return API_CONFIG.APP_API_URL;
-    }
+    return baseUrlOverride.replace(/\/+$/, '');
   }
   return API_CONFIG.APP_API_URL;
 };
 
 export const getConnectionInfo = async (): Promise<string> => {
-  const base = await getBaseUrl();
-  return base;
+  return API_CONFIG.APP_API_URL;
 };
 
 export const saveConnectionInfo = async (info: { appApiUrl: string }): Promise<void> => {
-  await AsyncStorage.setItem(KEYS.CONEXION, JSON.stringify(info));
+  if (info.appApiUrl && info.appApiUrl.replace(/\/+$/, '') !== API_CONFIG.APP_API_URL) {
+    console.warn('[API CONFIG] Se ignoró una URL distinta a la API productiva configurada.');
+  }
 };

@@ -11,9 +11,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DEMO_MODE": "false",
-        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
-        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app"
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app"
       },
       "channel": "development"
     },
@@ -23,9 +21,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DEMO_MODE": "false",
-        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
-        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app"
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app"
       },
       "channel": "staging"
     },
@@ -35,9 +31,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DEMO_MODE": "false",
-        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
-        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app"
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app"
       },
       "channel": "staging"
     },
@@ -47,10 +41,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_DEMO_MODE": "false",
-        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
-        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://gvuzyszsflujzinykqom.supabase.co"
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app"
       },
       "channel": "production"
     },
@@ -60,10 +51,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DEMO_MODE": "false",
-        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app",
-        "EXPO_PUBLIC_WEB_API_URL": "https://campo-api-web-campo-saas.up.railway.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://gvuzyszsflujzinykqom.supabase.co"
+        "EXPO_PUBLIC_APP_API_URL": "https://campo-api-app-campo-saas.up.railway.app"
       },
       "channel": "production"
     }

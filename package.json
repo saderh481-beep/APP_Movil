@@ -1,6 +1,6 @@
 {
   "name": "saderh-app",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -19,7 +19,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.5.2",
     "axios": "^1.13.6",
-    "expo": "~55.0.15",
+    "expo": "~55.0.0",
     "expo-camera": "~55.0.15",
     "expo-constants": "~55.0.14",
     "expo-dev-client": "55.0.27",
@@ -58,7 +58,7 @@
     "@babel/core": "*",
     "@types/react": "~19.2.10",
     "@types/uuid": "^10",
-    "babel-preset-expo": "*"
+    "babel-preset-expo": "~55.0.8"
   },
   "private": true
 }

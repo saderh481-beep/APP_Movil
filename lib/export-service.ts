@@ -188,7 +188,7 @@ export const exportData = async (options: Partial<ExportOptions> = {}): Promise<
     const format = options.format ?? 'json';
     const exportData: Record<string, unknown> = {
       exportDate: new Date().toISOString(),
-      appVersion: '1.0.0',
+      appVersion: '1.1.1',
     };
     
     let recordCount = 0;

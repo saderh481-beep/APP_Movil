@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { fontSize, radius, rh, rw, size, spacing } from '@/lib/responsive';
-import { API_CONFIG, getConnectionInfo, KEYS } from '@/lib/api';
+import { getConnectionInfo, KEYS } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -103,19 +103,19 @@ export default function Informacion() {
       const datos: Record<string, unknown> = {
         fecha_exportacion: new Date().toISOString(),
         tecnico: tecnico,
-        app_version: '1.0.0',
+        app_version: '1.1.1',
       };
 
       // Obtener datos locales
       try {
-        const [token, usuario, conexion, offline] = await AsyncStorage.multiGet([
+        const [token, usuario, offline] = await AsyncStorage.multiGet([
           KEYS.TOKEN,
           KEYS.USUARIO,
-          KEYS.CONEXION,
           KEYS.OFFLINE,
         ]);
+        const apiUrl = await getConnectionInfo();
         datos.auth = { tiene_token: !!token[1], usuario: usuario[1] ? JSON.parse(usuario[1]) : null };
-        datos.configuracion = conexion[1] ? JSON.parse(conexion[1]) : null;
+        datos.configuracion = { appApiUrl: apiUrl };
         datos.offline_queue = offline[1] ? 'disponible' : 'vacía';
       } catch (e) {
         console.warn('Error leyendo datos locales:', e);
@@ -215,7 +215,7 @@ export default function Informacion() {
           </View>
           <View style={s.infoRow}>
             <Text style={s.infoLabel}>Versión</Text>
-            <Text style={s.infoValue}>1.0.0</Text>
+            <Text style={s.infoValue}>1.1.1</Text>
           </View>
           <View style={s.infoRow}>
             <Text style={s.infoLabel}>SDK</Text>
